@@ -11,7 +11,7 @@ import type { TraceEvent } from './traceRecorder.ts';
 import { TraceRecorder } from './traceRecorder.ts';
 import { buildOpenApi, inferContract } from './contractInference.ts';
 import type { BuildInfo, GeneratedFile, Mutation } from './backendGenerator.ts';
-import { describeBuild, generateProject, writeProject, zipProject } from './backendGenerator.ts';
+import { describeBuild, generateProject, renderSeed, writeProject, zipProject } from './backendGenerator.ts';
 import type { RunningBackend } from './processManager.ts';
 import { startGeneratedBackend } from './processManager.ts';
 import type { ParityReport } from './parityVerifier.ts';
@@ -121,12 +121,20 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
     if (real) await real.stop();
     real = undefined;
     const realData = join(dataDir, 'real-data', buildId);
+    let seedFile: string | undefined;
+    if (migrate) {
+      // Copy the emulator's data as it is right now into a fresh database (not the snapshot taken at generate time).
+      rmSync(realData, { recursive: true, force: true });
+      mkdirSync(realData, { recursive: true });
+      seedFile = join(dataDir, 'real-data', `${buildId}.seed.json`);
+      writeFileSync(seedFile, renderSeed(engine.snapshot(), build.info.resources, new Date().toISOString()).content);
+    }
     try {
       const started = await startGeneratedBackend({
         dir: build.info.dir,
         dataDir: realData,
         port: realPort,
-        seedFile: migrate ? join(build.info.dir, 'seed.json') : undefined,
+        seedFile,
         corsOrigins: [...origins].join(','),
       });
       real = { ...started, buildId, startedAt: new Date().toISOString(), dataDir: realData, migrated: migrate };

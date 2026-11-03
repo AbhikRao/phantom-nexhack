@@ -187,7 +187,9 @@ Screenshots captured by the smoke test (real runs, not mockups): `artifacts/scre
 - Inference only reflects recorded traffic. A field never sent is unknown, and extra fields are accepted.
 - Query filters are exact string matches on top-level scalar fields.
 - Traces are capped at 5,000 events, and parity replays up to 1,000 of them.
-- REAL-mode data and PHANTOM-mode data diverge after the switch. Migration is a one-time copy at launch.
+- REAL-mode data and PHANTOM-mode data diverge after the switch. Migration is a one-time copy of the emulator's data at
+  the moment you click *Start generated backend*, into a fresh database. Ids and the id sequence are preserved. Restart
+  reuses the database and never re-imports.
 - The REAL backend is launched by PHANTOM as a child process. Stopping PHANTOM stops it too. To run it fully on its own,
   use the ZIP and the commands above.
 - Not deployed anywhere. Everything runs locally.

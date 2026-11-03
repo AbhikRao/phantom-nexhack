@@ -85,14 +85,17 @@ describe('PHANTOM end to end', () => {
   });
 
   it('launches the REAL backend with migrated data that survives a restart', async () => {
+    // Created AFTER the build was generated: migration must copy the emulator's data at launch time.
+    expect((await api('POST', '/api/tasks', { title: 'Added after generate', description: '', status: 'todo' })).body.id).toBe(3);
     const launched = (await api('POST', '/__phantom/real/launch', { buildId: build.id, migrate: true })).body;
     expect(launched.running).toBe(true);
     const realBase = launched.url as string;
     expect(realBase).not.toBe(base);
     const migrated = (await api('GET', '/api/tasks', undefined, realBase)).body as { title: string }[];
-    expect(migrated.map((t) => t.title)).toEqual(['Write pitch']);
+    expect(migrated.map((t) => t.title)).toEqual(['Write pitch', 'Added after generate']);
     const created = await api('POST', '/api/tasks', { title: 'Only in REAL', description: 'sqlite', status: 'todo' }, realBase);
     expect(created.status).toBe(201);
+    expect(created.body.id).toBe(4); // continues the emulator's id sequence; deleted id 2 is never reused
     expect(created.headers.get('x-phantom-generated-build')).toBe(build.id);
     // The emulator never saw it: the REAL backend is a separate implementation with its own storage.
     expect(((await api('GET', '/api/tasks')).body as { title: string }[]).some((t) => t.title === 'Only in REAL')).toBe(false);
@@ -100,7 +103,7 @@ describe('PHANTOM end to end', () => {
     const restarted = (await api('POST', '/__phantom/real/restart')).body;
     expect(restarted.pid).not.toBe(launched.pid);
     const after = (await api('GET', '/api/tasks', undefined, restarted.url)).body as { title: string }[];
-    expect(after.map((t) => t.title)).toEqual(['Write pitch', 'Only in REAL']);
+    expect(after.map((t) => t.title)).toEqual(['Write pitch', 'Added after generate', 'Only in REAL']);
     const bad = await api('POST', '/api/tasks', { title: 42 }, restarted.url);
     expect(bad.status).toBe(400);
     expect(bad.body.error).toBe('validation_failed');

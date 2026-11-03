@@ -40,7 +40,7 @@ interface Reply {
 const err = (status: number, error: string, message: string, extra: JsonObject = {}): Reply => ({ status, body: { error, message, ...extra } });
 
 function importSeed(file: string): number {
-  const seed = JSON.parse(readFileSync(file, 'utf8')) as { collections?: Record<string, StoredRecord[]> };
+  const seed = JSON.parse(readFileSync(file, 'utf8')) as { collections?: Record<string, StoredRecord[]>; nextIds?: Record<string, number> };
   let imported = 0;
   store.transaction(() => {
     for (const resource of RESOURCE_NAMES) {
@@ -51,6 +51,8 @@ function importSeed(file: string): number {
         store.importRecord(resource, r);
         imported++;
       }
+      const nextId = seed.nextIds?.[resource];
+      if (typeof nextId === 'number') store.reserveIds(resource, nextId);
     }
   });
   return imported;

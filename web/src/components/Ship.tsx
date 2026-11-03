@@ -220,7 +220,7 @@ export function RealPanel({ build, real, mode, setMode, onReal }: { build?: Buil
               </Button>
               <label className="flex items-center gap-2 text-xs text-muted">
                 <input type="checkbox" checked={migrate} onChange={(e) => setMigrate(e.target.checked)} className="accent-teal" />
-                Copy current tasks into it
+                Start from a copy of PHANTOM's current data (fresh database)
               </label>
             </div>
             {running && real && (

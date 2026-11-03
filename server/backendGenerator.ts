@@ -198,16 +198,25 @@ by an engineer.
 `;
 }
 
+/** Dataset export understood by the generated server's SEED_FILE import (records keep their ids; nextIds prevent id reuse). */
+export function renderSeed(snapshot: EngineSnapshot | undefined, resources: string[], exportedAt: string): { content: string; records: number } {
+  const collections: Record<string, unknown[]> = {};
+  const nextIds: Record<string, number> = {};
+  let records = 0;
+  for (const name of resources) {
+    const c = snapshot?.collections[name];
+    collections[name] = c?.records ?? [];
+    nextIds[name] = c?.nextId ?? 1;
+    records += collections[name].length;
+  }
+  return { content: JSON.stringify({ exportedAt, collections, nextIds }, null, 2) + '\n', records };
+}
+
 export function generateProject(contract: InferredContract, options: GenerateOptions): GeneratedFile[] {
   if (!/^[a-z0-9-]{1,64}$/.test(options.buildId)) throw new Error('invalid build id');
   const resources = contract.resources.filter((r) => RESOURCE_NAME.test(r.name)).map((r) => r.name);
-  const seedCollections: Record<string, unknown[]> = {};
-  let seedRecords = 0;
-  for (const name of resources) {
-    const records = options.seed?.collections[name]?.records ?? [];
-    seedCollections[name] = records;
-    seedRecords += records.length;
-  }
+  const seed = renderSeed(options.seed, resources, options.createdAt ?? new Date().toISOString());
+  const seedRecords = seed.records;
   const files: GeneratedFile[] = [];
   for (const rel of TEMPLATE_FILES) {
     let content = readFileSync(join(TEMPLATE_DIR, rel), 'utf8');
@@ -241,7 +250,7 @@ export function generateProject(contract: InferredContract, options: GenerateOpt
       ) + '\n',
   });
   files.push({ path: 'openapi.json', content: JSON.stringify(buildOpenApi(contract, { title: 'Generated backend' }), null, 2) + '\n' });
-  files.push({ path: 'seed.json', content: JSON.stringify({ exportedAt: options.createdAt ?? new Date().toISOString(), collections: seedCollections }, null, 2) + '\n' });
+  files.push({ path: 'seed.json', content: seed.content });
   files.push({ path: 'README.md', content: renderReadme(contract, options.buildId, seedRecords) });
   files.push({ path: '.gitignore', content: 'node_modules/\ndata/\n' });
   files.push({ path: '.env.example', content: 'PORT=8788\nHOST=127.0.0.1\nDATA_DIR=./data\n# SEED_FILE=seed.json\nCORS_ORIGINS=http://127.0.0.1:8787,http://localhost:8787\n' });

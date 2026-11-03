@@ -2,7 +2,7 @@
   "name": "phantom",
   "version": "0.1.0",
   "private": true,
-  "description": "PHANTOM — the backend that builds itself: stateful API emulator, trace recorder, contract inference, independent backend generator and parity verifier.",
+  "description": "PHANTOM \u2014 the backend that builds itself: stateful API emulator, trace recorder, contract inference, independent backend generator and parity verifier.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -14,7 +14,7 @@
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "start": "node --disable-warning=ExperimentalWarning server/index.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p templates/backend/tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "test": "vitest run",
     "probe": "node scripts/contract_probe.mjs",
     "acceptance": "node scripts/acceptance_generated.mjs",

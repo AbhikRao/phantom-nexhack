@@ -73,6 +73,16 @@ export class Store {
       .run(id, JSON.stringify(data), String(createdAt), String(updatedAt));
   }
 
+  /** Ensure the next generated id is at least `nextId` (keeps ids from an imported dataset unique forever). */
+  reserveIds(resource: string, nextId: number): void {
+    if (!Number.isInteger(nextId) || nextId < 2) return;
+    const name = `res_${resource}`;
+    table(resource);
+    const row = this.db.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?').get(name) as { seq: number } | undefined;
+    if (!row) this.db.prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)').run(name, nextId - 1);
+    else if (Number(row.seq) < nextId - 1) this.db.prepare('UPDATE sqlite_sequence SET seq = ? WHERE name = ?').run(nextId - 1, name);
+  }
+
   update(resource: string, id: number, data: JsonObject, now: string): StoredRecord | undefined {
     const result = this.db.prepare(`UPDATE ${table(resource)} SET data = ?, updated_at = ? WHERE id = ?`).run(JSON.stringify(data), now, id);
     return Number(result.changes) > 0 ? this.get(resource, id) : undefined;
