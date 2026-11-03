@@ -18,8 +18,9 @@ tests, and zero runtime dependencies. That project never calls PHANTOM. PHANTOM 
 against a clean emulator and a clean copy of the generated server, and diffs status codes, bodies and final data. A
 deliberately sabotaged build, and a seeded random-operation (fuzz) session, show the check really fails when behaviour
 differs and holds up beyond the recorded happy path. **Live shadow mode** mirrors real traffic to an isolated copy of the generated backend and shows differences as they
-happen, and **contract drift detection** flags new endpoints, unexpected fields and incompatible types with evidence. A
-one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
+happen, and **contract drift detection** flags new endpoints, unexpected fields and incompatible types with evidence. Every build also produces a
+**portable verification report** (standalone HTML plus JSON) with a contract fingerprint, every executed run, mismatch
+evidence and exact limitations. A one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
 generated server running as its own process on a separate port, and its data survives process restarts and page
 reloads.
 
@@ -37,7 +38,7 @@ Vitest 5, playwright-core.
 ## Links
 
 - GitHub repository: https://github.com/AbhikRao/phantom-nexhack (public)
-- Demo video: **TBD**. Follow [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md); `npm run record` can capture the guided run.
+- Demo video: **not published yet.** A finished 104-second silent film (1920x1080, H.264) exists locally at `artifacts/PHANTOM_NEXHACK_DEMO.mp4`; its storyboard is `artifacts/PHANTOM_NEXHACK_STORYBOARD.png` and its sources are in `promo/`. The upload link is **TBD**.
 - Live demo URL: **TBD / none**. The project runs locally and has not been deployed.
 
 ## Setup for judges
@@ -48,8 +49,8 @@ npm install && npm run build && npm start   # then open http://127.0.0.1:8787
 
 ## Verified results (see README, "Verified test results")
 
-31/31 unit and integration tests, 6/6 contract probe, 13/13 generated-backend acceptance steps (clean-folder
-install with PHANTOM stopped), and 20/20 Playwright browser smoke checks.
+36/36 unit and integration tests, 6/6 contract probe, 13/13 generated-backend acceptance steps (clean-folder
+install with PHANTOM stopped), and 21/21 Playwright browser smoke checks.
 
 ## Team
 

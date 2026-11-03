@@ -21,6 +21,7 @@ import { ShadowMode } from './shadowMode.ts';
 import type { ShadowEvent } from './shadowMode.ts';
 import { detectDrift } from './driftDetector.ts';
 import { importHar } from './harImport.ts';
+import { buildVerificationReport, renderVerificationHtml } from './verificationReport.ts';
 
 export interface PhantomOptions {
   /** Directory for state, traces, builds and REAL backend data. Omit for a purely in-memory instance. */
@@ -407,6 +408,19 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   });
 
   app.get('/__phantom/parity', async () => parityReports);
+
+  /* ---- portable verification evidence: structured JSON and a standalone HTML page ---- */
+  app.get('/__phantom/builds/:id/report.json', async (req, reply) => {
+    const b = getBuild((req.params as { id: string }).id);
+    if ((req.query as { download?: string }).download) reply.header('content-disposition', `attachment; filename="phantom-verification-${b.info.id}.json"`);
+    return buildVerificationReport(b.info, b.traces, parityReports);
+  });
+  app.get('/__phantom/builds/:id/report.html', async (req, reply) => {
+    const b = getBuild((req.params as { id: string }).id);
+    if ((req.query as { download?: string }).download) reply.header('content-disposition', `attachment; filename="phantom-verification-${b.info.id}.html"`);
+    reply.type('text/html; charset=utf-8').header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+    return reply.send(renderVerificationHtml(buildVerificationReport(b.info, b.traces, parityReports)));
+  });
 
   /* ---- drift: traffic recorded after the build was generated vs the contract the build was generated from ---- */
   app.get('/__phantom/builds/:id/drift', async (req) => {

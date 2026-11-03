@@ -19,7 +19,9 @@
     "probe": "node scripts/contract_probe.mjs",
     "acceptance": "node scripts/acceptance_generated.mjs",
     "smoke": "node scripts/browser_smoke.mjs",
-    "record": "node scripts/record_demo.mjs"
+    "record": "node scripts/record_demo.mjs",
+    "prestart": "node scripts/check-node.mjs",
+    "predev": "node scripts/check-node.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",

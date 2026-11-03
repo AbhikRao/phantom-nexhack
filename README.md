@@ -124,6 +124,53 @@ SEED_FILE=seed.json npm start      # import the dataset exported from PHANTOM (o
 npm install && npm run typecheck && npm test   # optional checks; needs the TypeScript dev dependency
 ```
 
+## Use it with your own frontend
+
+1. `npm install && npm run build && npm start` (the start script checks your Node version and tells you how to fix it).
+2. Point your app's API base URL at `http://127.0.0.1:8787`. PHANTOM answers `/api/<collection>` and `/api/<collection>/<id>`
+   with JSON bodies, so a `fetch('/api/tasks')` style client works with no setup.
+3. If your dev server is on another origin, allow it explicitly, because CORS is strict by default and other origins get a 403:
+
+   ```bash
+   PHANTOM_ALLOWED_ORIGINS=http://localhost:3000 npm start
+   ```
+
+4. Use your app. Collections appear in **What PHANTOM has learned** the first time they are used.
+5. Already have traffic? In your browser's DevTools Network tab choose *Save all as HAR*, then use **Import HAR** in the
+   *Live traffic* panel. Only flat `/api/<collection>` JSON requests are replayed; the UI reports what was skipped and why.
+6. **Generate backend**, then **Run parity check** and **Fuzz**. **Verification report (HTML)** downloads a standalone page you
+   can hand to a reviewer.
+
+| Symptom | Fix |
+|---|---|
+| `PHANTOM needs Node.js 22.18 or newer` | Install Node 22+ (`nvm install 22`). |
+| Browser console shows a CORS error | Add your app's origin to `PHANTOM_ALLOWED_ORIGINS`. |
+| `Can't reach the PHANTOM engine` banner | The server isn't running, or `PHANTOM_PORT` differs from where the dashboard loaded. |
+| Requests return 404 `unsupported_route` | Only `/api/<collection>[/<id>]` is emulated (lowercase names, 40 characters max). |
+| Port already in use | Set `PHANTOM_PORT` and `REAL_PORT` (see `.env.example`). |
+
+## Verification report
+
+Every generated build can produce a portable report, as a standalone HTML page and as structured JSON
+(`GET /__phantom/builds/<id>/report.html` and `report.json`, or the buttons in the *Verify behaviour* panel). It contains
+the build id and the SHA-256 of every generated file, a fingerprint of the contract the build was generated from, every
+replay and fuzz run that was actually executed with the operations checked, the mismatch evidence of any difference,
+the runs against deliberately broken builds (kept separate so they never count toward the verdict), what is normalised,
+the limitations, and commands to reproduce. A build nobody verified says **not verified** and claims nothing.
+
+## The demo film
+
+`artifacts/PHANTOM_NEXHACK_STORYBOARD.png` is a contact sheet of the 104-second silent film. The film is built from real
+evidence, not mock-ups: `promo/capture.mjs` drives the running dashboard with Playwright and saves real screenshots and the
+real JSON the system produced (`promo/captures/`). The motion graphics in `promo/` are vanilla JavaScript and inline SVG
+where every visible value is a pure function of time (no timers, no CSS keyframes), so any frame can be redrawn on demand.
+Scene 1 is an illustration of the problem and is labelled as such. Rebuild it with:
+
+```bash
+npm run build && node promo/capture.mjs    # re-capture real evidence (optional)
+promo/build.sh                             # render 3,120 frames and encode artifacts/PHANTOM_NEXHACK_DEMO.mp4 (Chrome + ffmpeg)
+```
+
 ## Demo walkthrough (about 2 minutes)
 
 Short on time, or nervous on stage? **Run the whole demo** (top right) performs every step above with real HTTP calls
@@ -159,11 +206,11 @@ Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-c
 | Command | What it checks | Result |
 |---|---|---|
 | `npm run typecheck` | Server, template and dashboard TypeScript | clean |
-| `npm test` | 31 vitest tests, including shadow mode, drift, HAR import and fuzz reproducibility over real child processes: engine semantics, redaction, inference, fuzz determinism, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, 300-step fuzz pass, induced failure with diff, REAL launch with live-data migration, restart persistence, 400 on contract violation) | 31/31 pass |
+| `npm test` | 36 vitest tests, including shadow mode, drift, HAR import, fuzz reproducibility and the verification report over real child processes: engine semantics, redaction, inference, fuzz determinism, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, 300-step fuzz pass, induced failure with diff, REAL launch with live-data migration, restart persistence, 400 on contract violation) | 36/36 pass |
 | `npm run build` | Production dashboard build | succeeds |
 | `PHANTOM_API=http://127.0.0.1:8787 npm run probe` | Kit's black-box contract probe against the emulator | 6/6 pass |
 | `npm run acceptance` | Records traffic, downloads the ZIP, **stops PHANTOM**, extracts to a clean temp folder, runs `npm install`, `typecheck` and the project's own `npm test`, starts it on :8798, checks seed import, runs the **contract probe against the generated backend**, exercises the generated typed client, restarts the process and checks the record is still there | 13/13 pass |
-| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, shadow differences and drift evidence appear, HAR import, no console errors | 20/20 pass |
+| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, the verification report page, shadow differences and drift evidence, HAR import, no console errors | 21/21 pass |
 
 Screenshots captured by the smoke test (real runs, not mockups): `artifacts/screenshots/desktop-phantom.png`,
 `desktop-real.png`, `demo-finished.png`, `shadow-drift.png`, `mobile.png`. See also [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md).

@@ -5,3 +5,5 @@ web/dist/
 test-results/
 artifacts/tmp/
 artifacts/demo.webm
+artifacts/*.mp4
+artifacts/*.webm

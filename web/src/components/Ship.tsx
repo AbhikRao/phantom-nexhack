@@ -197,6 +197,12 @@ export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; r
               >
                 Download report (JSON)
               </button>
+              {build && (
+                <>
+                  <a href={`${CONTROL_BASE}/__phantom/builds/${build.id}/report.html?download=1`} download className="rounded-lg border border-teal/50 px-2.5 py-1 text-teal hover:bg-teal/10" title="Standalone page: build id, contract fingerprint, every run, mismatch evidence and limitations">Verification report (HTML)</a>
+                  <a href={`${CONTROL_BASE}/__phantom/builds/${build.id}/report.json?download=1`} download className="rounded-lg border border-line px-2.5 py-1 text-ink hover:bg-raised">JSON</a>
+                </>
+              )}
               {report.reproduction && <span className="text-muted">Seed {report.reproduction.seed}, {report.reproduction.steps} steps{report.reproduction.firstFailureCase ? `, first failure at case ${report.reproduction.firstFailureCase}` : ', no failures'}</span>}
             </div>
             {report.reproduction && (

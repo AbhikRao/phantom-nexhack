@@ -83,6 +83,12 @@ try {
   await page.locator('#verify').getByText(/Broken build caught/).waitFor({ timeout: 30000 });
   check('sabotaged build is caught by the verifier', true);
 
+  // Portable verification report: the link in the verify panel serves a standalone page built from the runs above.
+  const reportHref = await page.getByRole('link', { name: 'Verification report (HTML)' }).getAttribute('href');
+  const reportRes = await page.request.get(new URL(reportHref.replace('?download=1', ''), BASE).href);
+  const reportHtml = await reportRes.text();
+  check('verification report is a standalone page listing the real runs and the broken-build evidence', reportRes.ok() && !/<script/i.test(reportHtml) && reportHtml.includes('verified, all runs match') && reportHtml.includes('sabotaged build') && reportHtml.includes('Mismatch evidence'));
+
   // Shadow mode through the UI: start, use the TaskBoard, see matches and no differences, stop.
   await page.getByRole('button', { name: 'Start shadow mode' }).click();
   await page.locator('#shadow').getByText('Shadowing', { exact: true }).waitFor({ timeout: 20000 });
