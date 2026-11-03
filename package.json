@@ -1,0 +1,43 @@
+{
+  "name": "phantom",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PHANTOM — the backend that builds itself: stateful API emulator, trace recorder, contract inference, independent backend generator and parity verifier.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n phantom,web -c magenta,cyan \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --watch --disable-warning=ExperimentalWarning server/index.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "node --disable-warning=ExperimentalWarning server/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "probe": "node scripts/contract_probe.mjs",
+    "acceptance": "node scripts/acceptance_generated.mjs",
+    "smoke": "node scripts/browser_smoke.mjs"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.8",
+    "fastify": "^5.12.8",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.4",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "concurrently": "^10.0.6",
+    "playwright-core": "^1.64.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.1.0"
+  }
+}
