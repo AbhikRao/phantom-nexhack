@@ -66,7 +66,8 @@ try {
   await page.locator('#traffic tbody tr').filter({ hasText: 'PATCH' }).first().waitFor();
   check('PATCH request is visible in the live trace stream', true);
   await page.locator('#contract').getByText('/api/tasks').first().waitFor();
-  check('contract panel shows discovered /api/tasks', (await page.locator('#contract').textContent()).includes('description'));
+  await page.locator('#contract').getByRole('cell', { name: /^description/ }).first().waitFor({ timeout: 5000 });
+  check('contract panel shows discovered /api/tasks with inferred fields', true);
   await page.screenshot({ path: join(shots, 'desktop-phantom.png'), fullPage: true });
 
   await page.getByRole('button', { name: 'Generate backend' }).click();
