@@ -36,8 +36,8 @@ Vitest 5, playwright-core.
 
 ## Links
 
-- GitHub repository: **TBD**. Must be public before submission. The team creates it; it has not been pushed.
-- Demo video: **TBD**. Record it locally with the README walkthrough.
+- GitHub repository: https://github.com/AbhikRao/phantom-nexhack (public)
+- Demo video: **TBD**. Follow [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md); `npm run record` can capture the guided run.
 - Live demo URL: **TBD / none**. The project runs locally and has not been deployed.
 
 ## Setup for judges
