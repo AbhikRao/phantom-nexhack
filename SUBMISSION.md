@@ -51,9 +51,16 @@ npm install && npm run build && npm start   # then open http://127.0.0.1:8787
 31/31 unit and integration tests, 6/6 contract probe, 13/13 generated-backend acceptance steps (clean-folder
 install with PHANTOM stopped), and 20/20 Playwright browser smoke checks.
 
-## Team contribution
+## Team
 
-**TBD.** List each participant and what they did.
+**Team name:** abhikrao1301
+
+| Member | Contribution |
+|---|---|
+| Abhik Rao | Core engine and verification: stateful emulator, trace recording and redaction, contract inference and OpenAPI, backend and typed-client generator, parity and seeded fuzz verification, shadow mode, drift detection, process management, repository and release |
+| Yashavi Tyagi | Product experience: dashboard design and UX, the guided and one-click demo, README, walkthrough and submission copy, demo storyboard and video review |
+
+_Edit this table if it doesn't match who did what; it is the team's statement, not an automatic record._
 
 ## AI assistance disclosure
 
