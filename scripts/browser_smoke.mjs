@@ -76,6 +76,9 @@ try {
   await page.getByRole('button', { name: 'Run parity check' }).click();
   await page.locator('#verify').getByText(/checks match/).waitFor({ timeout: 30000 });
   check('parity check reports all checks matching', true);
+  await page.getByRole('button', { name: 'Fuzz 200 steps' }).click();
+  await page.locator('#verify').getByText(/Fuzz session \(seed 7, \d+ random operations\)/).waitFor({ timeout: 30000 });
+  check('seeded fuzz session matches on both servers', (await page.locator('#verify [role=status]').textContent()).includes('checks match'));
   await page.getByRole('button', { name: 'Test a broken build' }).click();
   await page.locator('#verify').getByText(/Broken build caught/).waitFor({ timeout: 30000 });
   check('sabotaged build is caught by the verifier', true);
@@ -118,6 +121,14 @@ try {
   }
   check('mobile layout has no horizontal scroll', overflow <= 0);
   await page.screenshot({ path: join(shots, 'mobile.png'), fullPage: false });
+  // Whole-demo runner, from a desktop viewport, with the confirm dialog accepted.
+  await page.setViewportSize({ width: 1500, height: 1000 });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Run the whole demo' }).click();
+  await page.getByText('Demo finished, every step passed').waitFor({ timeout: 90000 });
+  const demoText = await page.getByLabel('Demo progress').textContent();
+  check('one-click demo ran every step', /Caught: \d+ of \d+ checks fail/.test(demoText) && /read back from the database/.test(demoText) && /the emulator has no such task/.test(demoText));
+  await page.screenshot({ path: join(shots, 'demo-finished.png'), fullPage: false });
   check('no console errors', consoleErrors.length === 0 || (console.log(consoleErrors), false));
 } catch (e) {
   console.error('ERROR', e.message);

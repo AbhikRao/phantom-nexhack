@@ -16,7 +16,8 @@ required fields, observed operations, and an OpenAPI 3.1 document.
 With one click it generates a **standalone backend project**: TypeScript, SQLite persistence, its own validation and
 tests, and zero runtime dependencies. That project never calls PHANTOM. PHANTOM then **replays the recorded traffic**
 against a clean emulator and a clean copy of the generated server, and diffs status codes, bodies and final data. A
-deliberately sabotaged build shows the check really fails when behaviour differs. Finally, the demo app switches to the
+deliberately sabotaged build, and a seeded random-operation (fuzz) session, show the check really fails when behaviour
+differs and holds up beyond the recorded happy path. A one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
 generated server running as its own process on a separate port, and its data survives process restarts and page
 reloads.
 
@@ -45,8 +46,8 @@ npm install && npm run build && npm start   # then open http://127.0.0.1:8787
 
 ## Verified results (see README, "Verified test results")
 
-18/18 unit and integration tests, 6/6 kit contract probe, 12/12 generated-backend acceptance steps (clean-folder
-install with PHANTOM stopped), and 13/13 Playwright browser smoke checks.
+22/22 unit and integration tests, 6/6 contract probe, 12/12 generated-backend acceptance steps (clean-folder
+install with PHANTOM stopped), and 15/15 Playwright browser smoke checks.
 
 ## Team contribution
 
@@ -54,5 +55,5 @@ install with PHANTOM stopped), and 13/13 Playwright browser smoke checks.
 
 ## AI assistance disclosure
 
-Substantial AI coding assistance: AI coding assistance was used to write code, tests and documentation, under the team's direction. Third-party open-source libraries are listed above. No code from before the event was used. The
+Substantial AI coding assistance was used to write code, tests and documentation, under the team's direction. Third-party open-source libraries are listed above. No code from before the event was used. The
 product itself uses no AI at runtime.

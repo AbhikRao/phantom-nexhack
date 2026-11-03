@@ -79,17 +79,21 @@ export function BuildPanel({ build, onBuilt, canBuild }: { build?: BuildInfo; on
 }
 
 export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; reports: ParityReport[]; onReport: (r: ParityReport) => void }) {
-  const [busy, setBusy] = useState<'normal' | 'mutant' | null>(null);
+  const [busy, setBusy] = useState<'normal' | 'mutant' | 'fuzz' | null>(null);
+  const [seed, setSeed] = useState(7);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const report = reports[0];
 
-  const verify = async (mutation?: string) => {
+  const verify = async (mutation?: string, fuzz?: boolean) => {
     if (!build) return;
-    setBusy(mutation ? 'mutant' : 'normal');
+    setBusy(fuzz ? 'fuzz' : mutation ? 'mutant' : 'normal');
     setError(null);
     try {
-      onReport(await control<ParityReport>(`/builds/${build.id}/parity`, { method: 'POST', body: mutation ? { mutation } : {} }));
+      const body: Record<string, unknown> = {};
+      if (mutation) body.mutation = mutation;
+      if (fuzz) body.fuzz = { seed, steps: 200 };
+      onReport(await control<ParityReport>(`/builds/${build.id}/parity`, { method: 'POST', body }));
       setOpen(null);
     } catch (e) {
       setError((e as Error).message);
@@ -106,6 +110,13 @@ export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; r
       aside={
         <>
           <Button tone="teal" onClick={() => verify()} busy={busy === 'normal'} disabled={!build || !!busy}>Run parity check</Button>
+          <Button onClick={() => verify(undefined, true)} busy={busy === 'fuzz'} disabled={!build || !!busy} title="200 seeded random CRUD operations, generated from the contract, sent to both servers">
+            Fuzz 200 steps
+          </Button>
+          <label className="flex items-center gap-1 text-xs text-muted">
+            Seed
+            <input type="number" value={seed} onChange={(e) => setSeed(Math.trunc(Number(e.target.value)) || 0)} className="w-14 rounded-md border border-line bg-navy px-1.5 py-1 font-mono text-ink" aria-label="Fuzz seed" />
+          </label>
           <Button onClick={() => verify('patch-ignores-body')} busy={busy === 'mutant'} disabled={!build || !!busy} title="Generates a copy whose PATCH handler ignores the request body, then runs the same check">
             Test a broken build
           </Button>
@@ -127,13 +138,13 @@ export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; r
                 {report.mutation
                   ? report.summary.failed > 0
                     ? `Broken build caught: ${report.summary.failed} of ${report.summary.total} checks fail`
-                    : 'Broken build NOT caught: the recorded traffic never exercises PATCH'
+                    : 'Broken build NOT caught: this traffic never exercises PATCH'
                   : report.summary.failed === 0
                     ? `${report.summary.passed} of ${report.summary.total} checks match`
                     : `${report.summary.failed} of ${report.summary.total} checks differ`}
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                {report.replayedTraces} recorded requests replayed in {report.durationMs}ms. Emulator {report.emulatorBase.replace('http://', '')}, generated server {report.generatedBase.replace('http://', '')}
+                {report.fuzz ? `Fuzz session (seed ${report.fuzz.seed}, ${report.replayedTraces} random operations)` : `${report.replayedTraces} recorded requests`} replayed in {report.durationMs}ms. Emulator {report.emulatorBase.replace('http://', '')}, generated server {report.generatedBase.replace('http://', '')}
                 {report.mutation ? ` (sabotaged: ${report.mutation})` : ''}.
               </p>
             </div>
@@ -143,7 +154,7 @@ export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; r
                   <button onClick={() => setOpen(open === c.n ? null : c.n)} aria-expanded={open === c.n} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-raised">
                     <span className={`w-9 shrink-0 font-semibold ${c.pass ? 'text-teal' : 'text-rose'}`}>{c.pass ? 'Pass' : 'Fail'}</span>
                     <span className="min-w-0 flex-1 truncate font-mono text-ink">{c.label}</span>
-                    <span className="shrink-0 text-faint">{c.source === 'trace' ? `trace #${c.traceSeq}` : c.source === 'synthetic' ? 'edge case' : 'final data'}</span>
+                    <span className="shrink-0 text-faint">{c.source === 'trace' ? `trace #${c.traceSeq}` : c.source === 'fuzz' ? `fuzz #${c.traceSeq}` : c.source === 'synthetic' ? 'edge case' : 'final data'}</span>
                     <StatusCode s={c.emulatorStatus} />
                     <span className="text-faint">/</span>
                     <StatusCode s={c.generatedStatus} />

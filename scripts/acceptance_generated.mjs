@@ -123,6 +123,21 @@ try {
   const probe2 = run(process.execPath, ['scripts/contract_probe.mjs'], { cwd: root, env: { ...process.env, PHANTOM_API: G } });
   step('contract probe against GENERATED backend (PHANTOM stopped)', probe2.ok, probe2.out.trim().split('\n').at(-1));
 
+  const clientScript = `
+    import { createClient, ApiError } from './src/client.ts';
+    const api = createClient(${JSON.stringify(G)});
+    const t = await api.tasks.create({ title: 'via typed client', description: 'x', status: 'todo' });
+    const patched = await api.tasks.update(t.id, { status: 'done' });
+    const listed = await api.tasks.list({ status: 'done' });
+    await api.tasks.remove(t.id);
+    let rejected = 0;
+    try { await api.tasks.get(t.id); } catch (e) { if (e instanceof ApiError) rejected = e.status; }
+    console.log(JSON.stringify({ id: t.id, status: patched.status, listed: listed.some((x) => x.id === t.id), rejected }));
+  `;
+  const client = run(process.execPath, ['--disable-warning=ExperimentalWarning', '--input-type=module', '-e', clientScript], { cwd: projectDir });
+  const clientResult = client.ok ? JSON.parse(client.out.trim().split('\n').at(-1)) : {};
+  step('generated typed client: create, update, filter, remove, ApiError on 404', client.ok && clientResult.status === 'done' && clientResult.listed === true && clientResult.rejected === 404, client.ok ? JSON.stringify(clientResult) : client.out.slice(-400));
+
   const created = await (await fetch(`${G}/api/tasks`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Survives restart', description: 'sqlite', status: 'todo' }) })).json();
   await gen.stop();
   gen = startProc('npm', ['start'], { cwd: projectDir, env });

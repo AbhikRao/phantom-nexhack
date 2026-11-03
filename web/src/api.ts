@@ -108,7 +108,7 @@ export interface EngineStatus {
 
 export interface ParityCase {
   n: number;
-  source: 'trace' | 'synthetic' | 'final-state';
+  source: 'trace' | 'fuzz' | 'synthetic' | 'final-state';
   traceSeq?: number;
   label: string;
   method: string;
@@ -130,6 +130,7 @@ export interface ParityReport {
   emulatorBase: string;
   generatedBase: string;
   replayedTraces: number;
+  fuzz: { seed: number; steps: number } | null;
   summary: { total: number; passed: number; failed: number };
   cases: ParityCase[];
   normalization: string[];

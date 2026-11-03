@@ -5,6 +5,7 @@ import { TaskBoard } from './components/TaskBoard.tsx';
 import { ContractPanel, TracePanel } from './components/Inspect.tsx';
 import { BuildPanel, ParityPanel, RealPanel } from './components/Ship.tsx';
 import { Button } from './components/ui.tsx';
+import { DemoRunner } from './components/DemoRunner.tsx';
 
 // The mode is a per-viewer UI preference only; task data always comes from an HTTP server.
 const readMode = (): Mode => {
@@ -130,7 +131,8 @@ export function App() {
                 </a>
               </li>
             ))}
-            <li className="ml-auto">
+            <li className="ml-auto flex gap-2">
+              <DemoRunner setMode={setMode} onBuilt={setBuild} onReport={(r) => setReports((prev) => [r, ...prev])} onReal={setReal} bump={() => setReloadKey((k) => k + 1)} />
               <Button onClick={reset} className="text-xs">Start over</Button>
             </li>
           </ol>

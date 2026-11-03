@@ -24,8 +24,8 @@ PHANTOM turns the mock phase into the first draft of the backend:
    contract and an OpenAPI 3.1 document.
 3. **Generate.** A downloadable TypeScript project with SQLite persistence, its own validation and tests. It has zero
    runtime dependencies and never calls PHANTOM.
-4. **Verify.** The recorded requests are replayed against a clean emulator and a clean copy of the generated server.
-   Statuses, bodies and final data are diffed. A deliberately broken build is used to show the check actually fails
+4. **Verify.** The recorded requests, plus an optional seeded fuzz session, are replayed against a clean emulator and a
+   clean copy of the generated server. Statuses, bodies and final data are diffed. A deliberately broken build is used to show the check actually fails
    when it should.
 5. **Switch.** The generated server runs as its own OS process on its own port. The demo app is pointed at it, and data
    survives process restarts and page reloads.
@@ -119,6 +119,10 @@ npm install && npm run typecheck && npm test   # optional checks; needs the Type
 
 ## Demo walkthrough (about 2 minutes)
 
+Short on time, or nervous on stage? **Run the whole demo** (top right) performs every step above with real HTTP calls
+and control-plane actions, shows each result as it arrives, and stops at the first failing check. It uses the same
+endpoints as the manual buttons, so nothing is faked.
+
 The chips across the top of the dashboard track these steps. Each one turns green only when the real state is reached,
 for example a recorded `POST` or a parity report with zero failures.
 
@@ -131,7 +135,9 @@ for example a recorded `POST` or a parity report with zero failures.
 4. **Run parity check.** Every recorded request is replayed against a fresh emulator and a freshly spawned generated
    server on ephemeral ports. Then click **Test a broken build**: PHANTOM generates a copy whose PATCH handler ignores
    the body, and the same check fails with field-level diffs.
-5. **Start generated backend**, then **Point TaskBoard at 127.0.0.1:8788**. The badge and route strip change, and the
+5. **Fuzz 200 steps.** PHANTOM generates a seeded random CRUD session from the inferred contract (same seed, same
+   session) and sends it to both servers. Statuses, bodies and final data must still match.
+6. **Start generated backend**, then **Point TaskBoard at 127.0.0.1:8788**. The badge and route strip change, and the
    request log shows `:8788`. Add a task. The emulator never sees it, so the trace stream goes quiet. Click **Restart
    process** (you get a new pid), then reload the page: the task is still there, read back from SQLite.
 
@@ -142,14 +148,14 @@ Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-c
 | Command | What it checks | Result |
 |---|---|---|
 | `npm run typecheck` | Server, template and dashboard TypeScript | clean |
-| `npm test` | 18 vitest tests: engine semantics, redaction, inference, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, induced failure with diff, REAL launch, restart persistence, 400 on contract violation) | 18/18 pass |
+| `npm test` | 22 vitest tests: engine semantics, redaction, inference, fuzz determinism, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, 300-step fuzz pass, induced failure with diff, REAL launch with live-data migration, restart persistence, 400 on contract violation) | 22/22 pass |
 | `npm run build` | Production dashboard build | succeeds |
 | `PHANTOM_API=http://127.0.0.1:8787 npm run probe` | Kit's black-box contract probe against the emulator | 6/6 pass |
 | `npm run acceptance` | Records traffic, downloads the ZIP, **stops PHANTOM**, extracts to a clean temp folder, runs `npm install`, `typecheck` and the project's own `npm test`, starts it on :8798, checks seed import, runs the **contract probe against the generated backend**, restarts the process and checks the record is still there | 12/12 pass |
-| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, no console errors | 13/13 pass |
+| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, no console errors | 15/15 pass |
 
 Screenshots captured by the smoke test (real runs, not mockups): `artifacts/screenshots/desktop-phantom.png`,
-`desktop-real.png`, `mobile.png`.
+`desktop-real.png`, `demo-finished.png`, `mobile.png`.
 
 ## Tradeoffs and decisions
 

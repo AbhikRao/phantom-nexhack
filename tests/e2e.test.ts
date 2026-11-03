@@ -75,6 +75,16 @@ describe('PHANTOM end to end', () => {
     expect(report.generatedBase).not.toBe(report.emulatorBase);
   });
 
+  it('survives a seeded fuzz session and catches a broken build with it', async () => {
+    const clean = (await api('POST', `/__phantom/builds/${build.id}/parity`, { fuzz: { seed: 7, steps: 300 } })).body as ParityReport;
+    expect(clean.fuzz).toEqual({ seed: 7, steps: 300 });
+    expect(clean.cases.filter((c) => c.source === 'fuzz')).toHaveLength(300);
+    expect(clean.cases.filter((c) => !c.pass)).toEqual([]);
+    const broken = (await api('POST', `/__phantom/builds/${build.id}/parity`, { fuzz: { seed: 7, steps: 300 }, mutation: 'patch-ignores-body' })).body as ParityReport;
+    expect(broken.summary.failed).toBeGreaterThan(0);
+    expect((await api('POST', `/__phantom/builds/${build.id}/parity`, { fuzz: { seed: 1, steps: 0 } })).status).toBe(400);
+  });
+
   it('detects an intentionally broken backend with a meaningful diff', async () => {
     const report = (await api('POST', `/__phantom/builds/${build.id}/parity`, { mutation: 'patch-ignores-body' })).body as ParityReport;
     expect(report.mutation).toBe('patch-ignores-body');

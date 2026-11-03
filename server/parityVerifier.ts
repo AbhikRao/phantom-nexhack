@@ -24,7 +24,7 @@ export interface Diff {
 
 export interface ParityCase {
   n: number;
-  source: 'trace' | 'synthetic' | 'final-state';
+  source: 'trace' | 'fuzz' | 'synthetic' | 'final-state';
   traceSeq?: number;
   label: string;
   method: string;
@@ -35,6 +35,8 @@ export interface ParityCase {
   generatedStatus: number;
   pass: boolean;
   diffs: Diff[];
+  /** Request body sent to both servers (fuzz and trace cases), so a failure report is self-contained. */
+  requestBody?: JsonValue;
 }
 
 export interface ParityReport {
@@ -47,6 +49,8 @@ export interface ParityReport {
   generatedBase: string;
   replayedTraces: number;
   skippedTraces: number;
+  fuzz: { seed: number; steps: number } | null;
+  reproduction?: { seed: number; steps: number; buildId: string; firstFailureCase: number | null; command: string; note: string };
   summary: { total: number; passed: number; failed: number };
   cases: ParityCase[];
   normalization: string[];
@@ -60,7 +64,7 @@ export const NORMALIZATION_RULES = [
 ];
 
 export const NOT_COVERED = [
-  'Only operations present in the recorded traces (plus a few labelled synthetic edge cases) are checked.',
+  'Only operations present in the recorded traces (or in the seeded fuzz session, which is generated from the inferred contract), plus a few labelled synthetic edge cases, are checked.',
   'Contract validation (400 on type mismatch) exists only in the generated backend; the emulator is intentionally permissive, so it is not part of parity.',
   'Unknown collections: the emulator discovers them, the generated backend returns 404. Replay only touches collections in the contract.',
   'Authentication, authorization, relations and business rules are not inferred or verified.',
@@ -159,6 +163,9 @@ export async function runParity(args: {
   emulator: Endpoint;
   generated: Endpoint;
   mutation?: string;
+  /** Label for replayed cases: recorded traces, or a seeded fuzz session. */
+  caseSource?: 'trace' | 'fuzz';
+  fuzz?: { seed: number; steps: number };
 }): Promise<ParityReport> {
   const started = Date.now();
   const cases: ParityCase[] = [];
@@ -189,7 +196,7 @@ export async function runParity(args: {
     );
     cases.push({
       n: cases.length + 1,
-      source: 'trace',
+      source: args.caseSource ?? 'trace',
       traceSeq: t.seq,
       label: `${t.method} ${t.route}`,
       method: t.method,
@@ -200,6 +207,7 @@ export async function runParity(args: {
       generatedStatus: g.status,
       pass: diffs.length === 0,
       diffs,
+      requestBody: t.requestBody,
     });
   }
 
@@ -242,6 +250,7 @@ export async function runParity(args: {
     generatedBase: args.generated.base,
     replayedTraces: replayable.length,
     skippedTraces: args.traces.length - replayable.length,
+    fuzz: args.fuzz ?? null,
     summary: { total: cases.length, passed, failed: cases.length - passed },
     cases,
     normalization: NORMALIZATION_RULES,

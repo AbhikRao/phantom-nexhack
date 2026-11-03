@@ -16,6 +16,11 @@ import type { RunningBackend } from './processManager.ts';
 import { startGeneratedBackend } from './processManager.ts';
 import type { ParityReport } from './parityVerifier.ts';
 import { runParity } from './parityVerifier.ts';
+import { generateFuzzTraces } from './fuzzGenerator.ts';
+import { ShadowMode } from './shadowMode.ts';
+import type { ShadowEvent } from './shadowMode.ts';
+import { detectDrift } from './driftDetector.ts';
+import { importHar } from './harImport.ts';
 
 export interface PhantomOptions {
   /** Directory for state, traces, builds and REAL backend data. Omit for a purely in-memory instance. */
@@ -45,7 +50,7 @@ export interface PhantomContext {
   shutdown: () => Promise<void>;
 }
 
-type BusEvent = { type: 'trace'; data: TraceEvent } | { type: 'reset' } | { type: 'build'; data: BuildInfo } | { type: 'real'; data: unknown } | { type: 'parity'; data: { id: string; buildId: string; summary: ParityReport['summary']; mutation: string | null } };
+type BusEvent = { type: 'trace'; data: TraceEvent } | { type: 'reset' } | { type: 'build'; data: BuildInfo } | { type: 'real'; data: unknown } | { type: 'shadow'; data: unknown } | { type: 'shadow-event'; data: ShadowEvent } | { type: 'parity'; data: { id: string; buildId: string; summary: ParityReport['summary']; mutation: string | null } };
 
 export async function createPhantom(options: PhantomOptions = {}): Promise<PhantomContext> {
   const bodyLimit = options.bodyLimit ?? 1_048_576;
@@ -60,6 +65,16 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   const listeners = new Set<(e: BusEvent) => void>();
   const emit = (e: BusEvent) => listeners.forEach((l) => l(e));
   recorder.subscribe((t) => emit({ type: 'trace', data: t }));
+  const shadow = new ShadowMode({
+    getBuild: (id) => {
+      const b = builds.get(id);
+      return b && !b.info.mutation ? { id: b.info.id, dir: b.info.dir, resources: b.info.resources } : undefined;
+    },
+    snapshot: () => engine.snapshot(),
+    scratchDir: options.dataDir ? join(resolve(options.dataDir), 'shadow') : undefined,
+    onEvent: (e) => emit({ type: 'shadow-event', data: e }),
+    onStatus: () => emit({ type: 'shadow', data: shadow.status() }),
+  });
 
   /* ------------------------------------------------------------- persistence ------------------------------------------------------------ */
   const statePath = dataDir && join(dataDir, 'state.json');
@@ -152,7 +167,7 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   /* ------------------------------------------------------------- Fastify app ------------------------------------------------------------ */
   const app = Fastify({ logger: options.logger ?? false, bodyLimit });
   app.removeAllContentTypeParsers();
-  app.addContentTypeParser('*', { parseAs: 'string', bodyLimit }, (_req, body, done) => done(null, body));
+  app.addContentTypeParser('*', { parseAs: 'string' }, (_req, body, done) => done(null, body));
 
   app.setErrorHandler((error: Error & { statusCode?: number; code?: string; error?: string }, _req, reply) => {
     const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
@@ -180,28 +195,46 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   });
 
   /* ------------------------------------------------------------- emulated API ----------------------------------------------------------- */
-  const handleApi = async (req: FastifyRequest, reply: FastifyReply) => {
+  /** The one path every emulated request takes (live traffic and HAR imports): engine, trace, shadow mirror. */
+  const processApi = (method: string, target: string, raw: string | undefined, headers: Record<string, string | string[] | undefined>) => {
     const started = performance.now();
-    const url = new URL(req.url, 'http://phantom.local');
-    const raw = typeof req.body === 'string' ? req.body : undefined;
-    const result = engine.handle(req.method, url.pathname, raw, url.searchParams);
-    reply.header('x-phantom-engine', 'emulator');
-    for (const [k, v] of Object.entries(result.headers ?? {})) reply.header(k, v);
-    reply.code(result.status);
+    const url = new URL(target, 'http://phantom.local');
+    const result = engine.handle(method, url.pathname, raw, url.searchParams);
     if (recordTraces) {
       recorder.record({
-        method: req.method,
+        method,
         path: url.pathname,
         query: url.search.slice(1),
         route: result.route,
         resource: result.resource,
         status: result.status,
         durationMs: performance.now() - started,
-        headers: req.headers,
+        headers,
         rawRequestBody: raw,
         responseBody: result.body as JsonValue | undefined,
       });
     }
+    if (shadow.isActive) {
+      const wrote = method !== 'GET' && result.status >= 200 && result.status < 300;
+      shadow.mirror({
+        method,
+        target: url.pathname + url.search,
+        rawBody: raw,
+        resource: result.resource,
+        emulatorStatus: result.status,
+        emulatorBody: result.body as JsonValue | undefined,
+        afterWrite: wrote ? engine.snapshot() : undefined,
+      });
+    }
+    return result;
+  };
+
+  const handleApi = async (req: FastifyRequest, reply: FastifyReply) => {
+    const raw = typeof req.body === 'string' ? req.body : undefined;
+    const result = processApi(req.method, req.url, raw, req.headers);
+    reply.header('x-phantom-engine', 'emulator');
+    for (const [k, v] of Object.entries(result.headers ?? {})) reply.header(k, v);
+    reply.code(result.status);
     if (result.body === undefined) return reply.send();
     return reply.type('application/json; charset=utf-8').send(JSON.stringify(result.body));
   };
@@ -220,6 +253,7 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
     builds: [...builds.values()].filter((b) => !b.info.mutation).map((b) => b.info.id),
     latestBuild: latestBuild()?.info,
     real: realStatus(),
+    shadow: shadow.status(),
   }));
 
   app.get('/__phantom/traces', async (req) => {
@@ -314,7 +348,7 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
     return reply.send(Buffer.from(zip));
   });
 
-  async function parityFor(build: StoredBuild, mutation?: Mutation): Promise<ParityReport> {
+  async function parityFor(build: StoredBuild, mutation?: Mutation, fuzz?: { seed: number; steps: number }): Promise<ParityReport> {
     const target = mutation ? createBuild(build.traces, mutation, false) : build;
     const emuCtx = await createPhantom({ recordTraces: false });
     const emuAddress = await emuCtx.app.listen({ port: 0, host: '127.0.0.1' });
@@ -324,12 +358,26 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
       generated = await startGeneratedBackend({ dir: target.info.dir, dataDir: genData, port: 0 });
       const report = await runParity({
         buildId: build.info.id,
-        traces: build.traces,
+        traces: fuzz ? generateFuzzTraces(inferContract(build.traces), fuzz.seed, fuzz.steps) : build.traces,
+        caseSource: fuzz ? 'fuzz' : 'trace',
+        fuzz,
         resources: target.info.resources,
         emulator: { base: emuAddress, stop: () => emuCtx.shutdown() },
         generated: { base: generated.base, stop: generated.stop },
         mutation,
       });
+      if (fuzz) {
+        const firstFailure = report.cases.find((c) => !c.pass && c.source === 'fuzz')?.n ?? null;
+        const reqBody = { fuzz, ...(mutation ? { mutation } : {}) };
+        report.reproduction = {
+          seed: fuzz.seed,
+          steps: fuzz.steps,
+          buildId: build.info.id,
+          firstFailureCase: firstFailure,
+          command: `curl -s -X POST http://127.0.0.1:8787/__phantom/builds/${build.info.id}/parity -H 'content-type: application/json' -d '${JSON.stringify(reqBody)}'`,
+          note: 'The session is generated from the build contract and the seed, so the same seed against the same build replays the identical operations.',
+        };
+      }
       parityReports.unshift(report);
       parityReports.splice(20);
       emit({ type: 'parity', data: { id: report.id, buildId: report.buildId, summary: report.summary, mutation: report.mutation } });
@@ -344,12 +392,64 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
 
   app.post('/__phantom/builds/:id/parity', async (req) => {
     const b = getBuild((req.params as { id: string }).id);
-    const mutation = jsonBody<{ mutation?: string }>(req).mutation || undefined;
+    const body = jsonBody<{ mutation?: string; fuzz?: { seed?: number; steps?: number } }>(req);
+    const mutation = body.mutation || undefined;
     if (mutation !== undefined && mutation !== 'patch-ignores-body') throw httpError(400, 'invalid_mutation', 'Supported mutation: patch-ignores-body');
-    return parityFor(b, mutation as Mutation | undefined);
+    let fuzz: { seed: number; steps: number } | undefined;
+    if (body.fuzz !== undefined) {
+      const seed = Number(body.fuzz.seed ?? 1);
+      const steps = Number(body.fuzz.steps ?? 200);
+      if (!Number.isInteger(seed) || !Number.isInteger(steps) || steps < 1 || steps > 1000) throw httpError(400, 'invalid_fuzz', 'fuzz needs an integer seed and steps between 1 and 1000');
+      if (generateFuzzTraces(inferContract(b.traces), seed, 1).length === 0) throw httpError(409, 'nothing_to_fuzz', 'Fuzzing needs at least one recorded create request');
+      fuzz = { seed, steps };
+    }
+    return parityFor(b, mutation as Mutation | undefined, fuzz);
   });
 
   app.get('/__phantom/parity', async () => parityReports);
+
+  /* ---- drift: traffic recorded after the build was generated vs the contract the build was generated from ---- */
+  app.get('/__phantom/builds/:id/drift', async (req) => {
+    const b = getBuild((req.params as { id: string }).id);
+    const fresh = recorder.all().filter((t) => t.timestamp > b.info.createdAt);
+    return detectDrift(b.traces, fresh, b.info.id);
+  });
+
+  /* ---- live shadow mode ---- */
+  app.get('/__phantom/shadow', async () => shadow.status());
+  app.post('/__phantom/shadow/start', async (req) => {
+    const buildId = jsonBody<{ buildId?: string }>(req).buildId ?? latestBuild()?.info.id;
+    if (!buildId) throw httpError(409, 'no_build', 'Generate a backend first');
+    if (!builds.has(buildId) || builds.get(buildId)!.info.mutation) throw httpError(404, 'build_not_found', 'Unknown build');
+    await shadow.start(buildId);
+    const status = shadow.status();
+    if (status.error) throw httpError(502, 'shadow_failed', status.error);
+    return status;
+  });
+  app.post('/__phantom/shadow/stop', async () => {
+    await shadow.stop();
+    return shadow.status();
+  });
+  app.post('/__phantom/shadow/resync', async () => {
+    if (!shadow.isActive) throw httpError(409, 'not_running', 'Shadow mode is not running');
+    await shadow.resync();
+    return shadow.status();
+  });
+
+  /* ---- HAR import: learn from traffic captured elsewhere ---- */
+  app.post('/__phantom/import/har', { bodyLimit: 8 * 1024 * 1024 }, async (req) => {
+    let har: unknown;
+    try {
+      har = JSON.parse(typeof req.body === 'string' ? req.body : '');
+    } catch {
+      throw httpError(400, 'invalid_har', 'The file is not valid JSON');
+    }
+    try {
+      return importHar(har, (method, target, raw, headers) => processApi(method, target, raw, headers));
+    } catch (e) {
+      throw httpError(400, 'invalid_har', (e as Error).message);
+    }
+  });
 
   app.get('/__phantom/real', async () => realStatus());
   app.post('/__phantom/real/launch', async (req) => {
@@ -386,6 +486,7 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   const shutdown = async () => {
     if (flushTimer) clearInterval(flushTimer);
     flush();
+    await shadow.stop();
     if (real) await real.stop();
     real = undefined;
     await app.close();
