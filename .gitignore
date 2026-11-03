@@ -3,7 +3,3 @@ web/dist/
 .phantom/
 *.log
 test-results/
-artifacts/tmp/
-artifacts/demo.webm
-artifacts/*.mp4
-artifacts/*.webm

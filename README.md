@@ -1,10 +1,18 @@
 # PHANTOM: the backend that builds itself
 
-Build your frontend against an API that doesn't exist yet. PHANTOM answers the requests and records them. From that
-recorded traffic it infers the contract, **generates a standalone persistent backend**, and then **replays the traffic
-to check** that the new backend behaves the same way.
+Build your frontend against an API that doesn't exist yet. PHANTOM answers the requests, learns the contract from them,
+**generates a standalone persistent backend**, and then **proves the new backend behaves the same**.
 
-Built for NexHack 3.0 (Open Innovation track).
+[![Watch the 104-second demo](https://i.ytimg.com/vi/Mfh-gT-wnRs/hqdefault.jpg)](https://youtu.be/Mfh-gT-wnRs)
+
+| | |
+|---|---|
+| Team | abhikrao1301: Abhik Rao, Yashavi Tyagi |
+| Event | NexHack 3.0, Open Innovation track |
+| Demo video | https://youtu.be/Mfh-gT-wnRs (no voiceover) |
+| Status | Runs locally. No API keys, no cloud services. |
+
+![PHANTOM dashboard](docs/screenshots/dashboard.png)
 
 ## The problem
 
@@ -96,7 +104,7 @@ The generated backend implements the same semantics independently. It differs in
 validation_failed` when a body contradicts the inferred types or omits a required field, and `404 unknown_resource` for
 collections that weren't in the recorded traffic.
 
-## Run it
+## Quick start
 
 Requires **Node.js 22.18+** (developed on Node 24.21). Neither PHANTOM nor the generated backend needs an API key.
 
@@ -158,24 +166,9 @@ replay and fuzz run that was actually executed with the operations checked, the 
 the runs against deliberately broken builds (kept separate so they never count toward the verdict), what is normalised,
 the limitations, and commands to reproduce. A build nobody verified says **not verified** and claims nothing.
 
-## The demo film
+## Guided demo (about 2 minutes)
 
-Watch it: https://youtu.be/Mfh-gT-wnRs
-
-`artifacts/PHANTOM_NEXHACK_STORYBOARD.png` is a contact sheet of the 104-second silent film. The film is built from real
-evidence, not mock-ups: `promo/capture.mjs` drives the running dashboard with Playwright and saves real screenshots and the
-real JSON the system produced (`promo/captures/`). The motion graphics in `promo/` are vanilla JavaScript and inline SVG
-where every visible value is a pure function of time (no timers, no CSS keyframes), so any frame can be redrawn on demand.
-Scene 1 is an illustration of the problem and is labelled as such. Rebuild it with:
-
-```bash
-npm run build && node promo/capture.mjs    # re-capture real evidence (optional)
-promo/build.sh                             # render 3,120 frames and encode artifacts/PHANTOM_NEXHACK_DEMO.mp4 (Chrome + ffmpeg)
-```
-
-## Demo walkthrough (about 2 minutes)
-
-Short on time, or nervous on stage? **Run the whole demo** (top right) performs every step above with real HTTP calls
+**Run the whole demo** (top right) performs every step above with real HTTP calls
 and control-plane actions, shows each result as it arrives, and stops at the first failing check. It uses the same
 endpoints as the manual buttons, so nothing is faked.
 
@@ -203,7 +196,7 @@ for example a recorded `POST` or a parity report with zero failures.
 
 ## Verified test results
 
-Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-core):
+Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-core), including from a fresh clone of this repository:
 
 | Command | What it checks | Result |
 |---|---|---|
@@ -214,8 +207,10 @@ Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-c
 | `npm run acceptance` | Records traffic, downloads the ZIP, **stops PHANTOM**, extracts to a clean temp folder, runs `npm install`, `typecheck` and the project's own `npm test`, starts it on :8798, checks seed import, runs the **contract probe against the generated backend**, exercises the generated typed client, restarts the process and checks the record is still there | 13/13 pass |
 | `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, the verification report page, shadow differences and drift evidence, HAR import, no console errors | 21/21 pass |
 
-Screenshots captured by the smoke test (real runs, not mockups): `artifacts/screenshots/desktop-phantom.png`,
-`desktop-real.png`, `demo-finished.png`, `shadow-drift.png`, `mobile.png`. See also [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md).
+Screenshots in `docs/screenshots/` come from the smoke test (real runs, not mock-ups). The browser smoke test also writes
+fresh ones to `test-results/` (git-ignored). The mobile layout:
+
+<img src="docs/screenshots/mobile.png" alt="PHANTOM dashboard on a phone-width viewport" width="260">
 
 ## Tradeoffs and decisions
 
@@ -264,7 +259,6 @@ Screenshots captured by the smoke test (real runs, not mockups): `artifacts/scre
 - Drift detection checks top-level and nested field types, new collections and operations, and required fields. It
   doesn't track response-shape changes, and the emulator, not a real server, produces the responses.
 - HAR import replays flat `/api/<collection>` JSON requests only and skips everything else (reported in the UI).
-- No demo video is included. `npm run record` can produce one once Playwright's ffmpeg is installed.
 - Not deployed anywhere. Everything runs locally.
 
 ## Tech stack
@@ -276,10 +270,9 @@ Grotesk and IBM Plex Mono via Google Fonts.
 ## AI assistance disclosure
 
 AI coding assistants were used heavily to write source code, tests and documentation, under the direction of the team.
-All third-party
-libraries are listed above and are used under their open-source licences. No code from before the event was used. PHANTOM
-itself uses no AI or ML at runtime: inference and generation are deterministic.
+All third-party libraries are listed above and are used under their open-source licences. No code from before the event
+was used. PHANTOM itself uses no AI or ML at runtime: inference and generation are deterministic.
 
-## License
+## Team and license
 
-MIT, see [LICENSE](LICENSE).
+Team abhikrao1301: Abhik Rao and Yashavi Tyagi. MIT licensed, see [LICENSE](LICENSE).

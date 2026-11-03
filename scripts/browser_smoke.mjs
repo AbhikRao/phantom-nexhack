@@ -2,7 +2,7 @@
  * Browser smoke test (Playwright driving the locally installed Chrome; no browser download).
  * Starts an isolated PHANTOM on :8794 (REAL backend on :8795) and walks the guided demo through the real UI:
  * create/move task -> contract shows fields -> generate -> parity -> start REAL -> switch -> create -> restart -> reload.
- * Requires `npm run build` first. Writes screenshots to artifacts/screenshots/.
+ * Requires `npm run build` first. Writes screenshots to test-results/screenshots/ (git-ignored).
  * Usage: node scripts/browser_smoke.mjs   (CHROME_PATH=/path/to/chrome to override)
  */
 import { spawn } from 'node:child_process';
@@ -16,7 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8794;
 const REAL = 8795;
 const BASE = `http://127.0.0.1:${PORT}`;
-const shots = join(root, 'artifacts/screenshots');
+const shots = join(root, 'test-results/screenshots');
 mkdirSync(shots, { recursive: true });
 if (!existsSync(join(root, 'web/dist/index.html'))) {
   console.error('Run `npm run build` first.');

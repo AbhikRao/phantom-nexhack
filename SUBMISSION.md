@@ -1,69 +1,71 @@
-# NexHack 3.0 submission: PHANTOM
+# NexHack 3.0 submission
 
-**Project title:** PHANTOM: The Backend That Builds Itself
-
-**Track:** Open Innovation. PHANTOM's runtime inference is deterministic, not ML, so it is not entered as an AI/ML project.
+| | |
+|---|---|
+| **Project** | PHANTOM: The Backend That Builds Itself |
+| **Team** | abhikrao1301 (Abhik Rao, Yashavi Tyagi) |
+| **Track** | Open Innovation |
+| **Repository** | https://github.com/AbhikRao/phantom-nexhack |
+| **Demo video** | https://youtu.be/Mfh-gT-wnRs (104 seconds, no voiceover) |
+| **Live demo** | None. PHANTOM runs locally (see "Run it"). |
 
 **Tagline:** Build a frontend against an API that doesn't exist, then turn how it was used into a verified, persistent backend.
 
-## Description
+## Problem
 
-Frontend teams wait on backends, or build against mock APIs that get thrown away and drift from what is eventually
-built. PHANTOM is a local, stateful REST emulator that answers a frontend's requests without any route declarations
-and records every interaction, with secrets redacted. From that traffic it infers the data contract: field types,
-required fields, observed operations, and an OpenAPI 3.1 document.
+Frontend teams wait on backends, or build against mock APIs that are thrown away and drift from what is eventually built.
+Nothing checks that the real backend behaves like the mock the frontend was developed against.
 
-With one click it generates a **standalone backend project**: TypeScript, SQLite persistence, its own validation and
-tests, and zero runtime dependencies. That project never calls PHANTOM. PHANTOM then **replays the recorded traffic**
-against a clean emulator and a clean copy of the generated server, and diffs status codes, bodies and final data. A
-deliberately sabotaged build, and a seeded random-operation (fuzz) session, show the check really fails when behaviour
-differs and holds up beyond the recorded happy path. **Live shadow mode** mirrors real traffic to an isolated copy of the generated backend and shows differences as they
-happen, and **contract drift detection** flags new endpoints, unexpected fields and incompatible types with evidence. Every build also produces a
-**portable verification report** (standalone HTML plus JSON) with a contract fingerprint, every executed run, mismatch
-evidence and exact limitations. A one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
-generated server running as its own process on a separate port, and its data survives process restarts and page
-reloads.
+## Solution
 
-**What's new here:** API mocking already exists. PHANTOM connects the pieces mocking tools leave out: from observed
-behaviour, to an independent runnable backend, to an automatic check that the two behave the same.
+PHANTOM is a local, stateful REST emulator. It answers a frontend's requests with no route declarations, records every
+interaction (secrets redacted), and infers the data contract: field types, required fields, observed operations and an
+OpenAPI 3.1 document. In one click it generates a **standalone backend** (TypeScript, SQLite, its own validation and
+tests, zero runtime dependencies) that never calls PHANTOM, and then **proves it behaves the same**:
 
-**Impact (hypothesis, not measured):** less duplicated mock-then-rebuild work and fewer frontend/backend contract
-surprises at integration. We have not run a benchmark, so we claim no time savings.
+- **Parity check:** recorded requests are replayed against a fresh emulator and a fresh copy of the generated server;
+  statuses, bodies and final data are diffed. A deliberately sabotaged build must fail, and does.
+- **Seeded fuzz:** reproducible random CRUD sessions generated from the contract.
+- **Live shadow mode:** real traffic is mirrored to an isolated copy of the generated backend and differences appear as they happen.
+- **Contract drift detection:** new endpoints, unexpected fields and incompatible types after generation, with evidence.
+- **Portable verification report:** a standalone HTML and JSON record of exactly what was run and what failed.
+- **Reality switch:** the demo app is pointed at the generated server, which runs as its own process; data survives a restart and a page reload.
 
-## Technology stack
+**What is new:** API mocking exists. PHANTOM connects what mocking tools leave out: observed behaviour, to an independent
+runnable backend, to an automatic check that the two behave the same, kept honest over time by shadow traffic and drift detection.
 
-TypeScript on Node.js 22.18+ (type stripping), Fastify 5, node:sqlite, fflate, React 19, Vite 8, Tailwind CSS 4,
-Vitest 5, playwright-core.
+**Impact (hypothesis, not measured):** less duplicated mock-then-rebuild work and fewer contract surprises at integration.
+No benchmark was run, so no time savings are claimed.
 
-## Links
+## Run it
 
-- GitHub repository: https://github.com/AbhikRao/phantom-nexhack (public)
-- Demo video: https://youtu.be/Mfh-gT-wnRs (104 seconds, silent, built from real captured evidence; sources in `promo/`, storyboard in `artifacts/PHANTOM_NEXHACK_STORYBOARD.png`)
-- Live demo URL: **TBD / none**. The project runs locally and has not been deployed.
-
-## Setup for judges
+Needs Node.js 22.18 or newer. No API keys.
 
 ```bash
-npm install && npm run build && npm start   # then open http://127.0.0.1:8787
+npm install && npm run build && npm start      # open http://127.0.0.1:8787, then click "Run the whole demo"
 ```
 
-## Verified results (see README, "Verified test results")
+## Verified results
 
-36/36 unit and integration tests, 6/6 contract probe, 13/13 generated-backend acceptance steps (clean-folder
-install with PHANTOM stopped), and 21/21 Playwright browser smoke checks.
+Observed on 2026-11-03 (Linux, Node 24.21, Chrome 156), including from a fresh clone of this repository:
+typecheck clean, 36/36 unit and integration tests, 6/6 black-box contract probe, 13/13 acceptance steps (generated backend
+installed and run in a clean folder with PHANTOM stopped), 21/21 Playwright browser checks. Commands are in the README.
+
+## Technology
+
+TypeScript on Node.js 22.18+ (type stripping), Fastify 5, `node:sqlite`, fflate, React 19, Vite 8, Tailwind CSS 4, Vitest 5,
+playwright-core. Inference and generation are deterministic; no AI or ML runs at runtime and no API key is needed.
 
 ## Team
 
-**Team name:** abhikrao1301
+**abhikrao1301**
 
 | Member | Contribution |
 |---|---|
-| Abhik Rao | Core engine and verification: stateful emulator, trace recording and redaction, contract inference and OpenAPI, backend and typed-client generator, parity and seeded fuzz verification, shadow mode, drift detection, process management, repository and release |
-| Yashavi Tyagi | Product experience: dashboard design and UX, the guided and one-click demo, README, walkthrough and submission copy, demo storyboard and video review |
-
-_Edit this table if it doesn't match who did what; it is the team's statement, not an automatic record._
+| Abhik Rao | Core engine and verification: emulator, trace recording and redaction, contract inference and OpenAPI, backend and typed-client generator, parity and fuzz verification, shadow mode, drift detection, release |
+| Yashavi Tyagi | Product experience: dashboard design and UX, the guided demo, documentation and submission copy, demo video direction |
 
 ## AI assistance disclosure
 
-Substantial AI coding assistance was used to write code, tests and documentation, under the team's direction. Third-party open-source libraries are listed above. No code from before the event was used. The
-product itself uses no AI at runtime.
+AI coding assistants were used heavily to write code, tests and documentation, under the team's direction. Third-party
+open-source libraries are listed in the README. No code from before the event was used.
