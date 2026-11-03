@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #0d1430;
+  --color-panel: #131c3b;
+  --color-raised: #1a2550;
+  --color-line: #26325e;
+  --color-ink: #e4e8f6;
+  --color-muted: #939dc4;
+  --color-faint: #5f6a96;
+  --color-indigo: #7c83ff;
+  --color-teal: #34c6b3;
+  --color-rose: #ff7088;
+  --color-amber: #f0b955;
+  --color-paper: #f5f6fb;
+  --color-paper-ink: #1b2246;
+  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Schibsted Grotesk", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html { background: var(--color-navy); color-scheme: dark; }
+body { margin: 0; background: var(--color-navy); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+:focus-visible { outline: 2px solid var(--color-teal); outline-offset: 2px; border-radius: 6px; }
+
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-line) transparent; }
+
+@keyframes arrive { from { background-color: rgb(52 198 179 / 0.22); } to { background-color: transparent; } }
+.arrive { animation: arrive 1.6s ease-out; }
+
+@keyframes discovered { from { box-shadow: 0 0 0 2px var(--color-teal); } to { box-shadow: 0 0 0 0 transparent; } }
+.discovered { animation: discovered 2.4s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .arrive, .discovered { animation: none; }
+  * { transition: none !important; }
+}
