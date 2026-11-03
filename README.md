@@ -160,6 +160,8 @@ the limitations, and commands to reproduce. A build nobody verified says **not v
 
 ## The demo film
 
+Watch it: https://youtu.be/Mfh-gT-wnRs
+
 `artifacts/PHANTOM_NEXHACK_STORYBOARD.png` is a contact sheet of the 104-second silent film. The film is built from real
 evidence, not mock-ups: `promo/capture.mjs` drives the running dashboard with Playwright and saves real screenshots and the
 real JSON the system produced (`promo/captures/`). The motion graphics in `promo/` are vanilla JavaScript and inline SVG

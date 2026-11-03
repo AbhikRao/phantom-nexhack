@@ -38,7 +38,7 @@ Vitest 5, playwright-core.
 ## Links
 
 - GitHub repository: https://github.com/AbhikRao/phantom-nexhack (public)
-- Demo video: **not published yet.** A finished 104-second silent film (1920x1080, H.264) exists locally at `artifacts/PHANTOM_NEXHACK_DEMO.mp4`; its storyboard is `artifacts/PHANTOM_NEXHACK_STORYBOARD.png` and its sources are in `promo/`. The upload link is **TBD**.
+- Demo video: https://youtu.be/Mfh-gT-wnRs (104 seconds, silent, built from real captured evidence; sources in `promo/`, storyboard in `artifacts/PHANTOM_NEXHACK_STORYBOARD.png`)
 - Live demo URL: **TBD / none**. The project runs locally and has not been deployed.
 
 ## Setup for judges
