@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PHANTOM_API_BASE, control, data } from '../api.ts';
-import type { BuildInfo, Mode, ParityReport, RealStatus, Task } from '../api.ts';
+import type { BuildInfo, DriftReport, Mode, ParityReport, RealStatus, ShadowStatus, Task } from '../api.ts';
 import { Button } from './ui.tsx';
 
 type StepState = { label: string; target: string; status: 'pending' | 'running' | 'done' | 'failed'; detail?: string };
@@ -12,6 +12,8 @@ const STEPS: Omit<StepState, 'status'>[] = [
   { label: 'Replay the recorded traffic against both servers', target: 'verify' },
   { label: 'Fuzz both servers with 200 seeded operations', target: 'verify' },
   { label: 'Check that a sabotaged build is caught', target: 'verify' },
+  { label: 'Shadow live traffic: one request that fits, two that break the contract', target: 'shadow' },
+  { label: 'Detect the drift those requests caused', target: 'drift' },
   { label: 'Start the generated backend and switch to it', target: 'real' },
   { label: 'Create a task on the real port (the emulator must not see it)', target: 'board' },
   { label: 'Restart the process and read the task back from SQLite', target: 'real' },
@@ -28,6 +30,7 @@ export function DemoRunner(props: {
   onBuilt: (b: BuildInfo) => void;
   onReport: (r: ParityReport) => void;
   onReal: (r: RealStatus) => void;
+  onShadow: (s: ShadowStatus) => void;
   bump: () => void;
 }) {
   const [steps, setSteps] = useState<StepState[] | null>(null);
@@ -98,6 +101,36 @@ export function DemoRunner(props: {
         props.onReport(r);
         expect(r.summary.failed > 0, 'The sabotaged build was NOT caught, so this run proves nothing');
         return `Caught: ${r.summary.failed} of ${r.summary.total} checks fail`;
+      });
+      await step(async () => {
+        let s = await control<ShadowStatus>('/shadow/start', { method: 'POST', body: { buildId: build.id } });
+        props.onShadow(s);
+        const fits = await data<Task>(P, 'POST', '/api/tasks', { title: 'Fits the contract', description: '', status: 'todo' });
+        const wrongType = await data<Task>(P, 'POST', '/api/tasks', { title: 12345, description: 'title should be text', status: 'todo' });
+        const project = await data<{ id: number }>(P, 'POST', '/api/projects', { name: 'Never generated' });
+        const deadline = Date.now() + 15000;
+        while (s.mirrored < 3 && Date.now() < deadline) {
+          await pause(250);
+          s = await control<ShadowStatus>('/shadow');
+        }
+        props.onShadow(s);
+        expect(s.mirrored >= 3, 'Shadow mode did not receive the mirrored requests in time');
+        expect(s.matched >= 1, 'The conforming request should match');
+        expect(s.differed >= 2, 'Shadow mode should have flagged both contract-breaking requests');
+        const stopped = await control<ShadowStatus>('/shadow/stop', { method: 'POST', body: {} });
+        props.onShadow(stopped);
+        // Leave the demo data as it was: remove what this step created (shadow is stopped, so these are not mirrored).
+        await data(P, 'DELETE', `/api/tasks/${fits.id}`);
+        await data(P, 'DELETE', `/api/tasks/${wrongType.id}`);
+        await data(P, 'DELETE', `/api/projects/${project.id}`);
+        props.bump();
+        return `${s.matched} matched, ${s.differed} differ: the shadow backend answered 400 for the wrong type and 404 for /api/projects`;
+      });
+      await step(async () => {
+        const d = await control<DriftReport>(`/builds/${build.id}/drift`);
+        expect(d.summary.breaking >= 2, 'Drift detection should report the new endpoint and the incompatible type');
+        const top = d.findings.slice(0, 2).map((f) => f.summary).join('; ');
+        return `${d.summary.breaking} breaking, ${d.summary.warning} warnings. ${top}`;
       });
       await step(async () => {
         real = await control<RealStatus>('/real/launch', { method: 'POST', body: { buildId: build.id, migrate: true } });

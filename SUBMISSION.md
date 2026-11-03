@@ -17,7 +17,9 @@ With one click it generates a **standalone backend project**: TypeScript, SQLite
 tests, and zero runtime dependencies. That project never calls PHANTOM. PHANTOM then **replays the recorded traffic**
 against a clean emulator and a clean copy of the generated server, and diffs status codes, bodies and final data. A
 deliberately sabotaged build, and a seeded random-operation (fuzz) session, show the check really fails when behaviour
-differs and holds up beyond the recorded happy path. A one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
+differs and holds up beyond the recorded happy path. **Live shadow mode** mirrors real traffic to an isolated copy of the generated backend and shows differences as they
+happen, and **contract drift detection** flags new endpoints, unexpected fields and incompatible types with evidence. A
+one-click demo mode runs the whole flow with real requests. Finally, the demo app switches to the
 generated server running as its own process on a separate port, and its data survives process restarts and page
 reloads.
 
@@ -46,8 +48,8 @@ npm install && npm run build && npm start   # then open http://127.0.0.1:8787
 
 ## Verified results (see README, "Verified test results")
 
-22/22 unit and integration tests, 6/6 contract probe, 12/12 generated-backend acceptance steps (clean-folder
-install with PHANTOM stopped), and 15/15 Playwright browser smoke checks.
+31/31 unit and integration tests, 6/6 contract probe, 13/13 generated-backend acceptance steps (clean-folder
+install with PHANTOM stopped), and 20/20 Playwright browser smoke checks.
 
 ## Team contribution
 

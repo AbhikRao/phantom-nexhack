@@ -4,3 +4,4 @@ web/dist/
 *.log
 test-results/
 artifacts/tmp/
+artifacts/demo.webm

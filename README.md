@@ -27,7 +27,10 @@ PHANTOM turns the mock phase into the first draft of the backend:
 4. **Verify.** The recorded requests, plus an optional seeded fuzz session, are replayed against a clean emulator and a
    clean copy of the generated server. Statuses, bodies and final data are diffed. A deliberately broken build is used to show the check actually fails
    when it should.
-5. **Switch.** The generated server runs as its own OS process on its own port. The demo app is pointed at it, and data
+5. **Watch.** *Live shadow* mirrors every request PHANTOM answers to a private copy of the generated server, so
+   differences show up as they happen. *Contract drift* compares traffic recorded after generation with the contract the
+   backend was built from and says what the generated server would do with it.
+6. **Switch.** The generated server runs as its own OS process on its own port. The demo app is pointed at it, and data
    survives process restarts and page reloads.
 
 ## Architecture
@@ -62,6 +65,10 @@ PHANTOM turns the mock phase into the first draft of the backend:
 | contractInference | `server/contractInference.ts` | Type merging (`integer`→`number`, unions, nested objects, arrays), required fields, OpenAPI |
 | backendGenerator | `server/backendGenerator.ts` | Deterministic project generation, safe file writing, ZIP |
 | parityVerifier | `server/parityVerifier.ts` | HTTP replay with id remapping, normalisation, deep diffs |
+| shadowMode | `server/shadowMode.ts` | Mirrors live traffic to an isolated generated backend (own process, own scratch DB), diffs every response |
+| driftDetector | `server/driftDetector.ts` | New endpoints, unexpected fields, incompatible types and missing required fields since generation, with evidence |
+| fuzzGenerator | `server/fuzzGenerator.ts` | Seeded, contract-conforming CRUD sessions with their own id simulation |
+| harImport | `server/harImport.ts` | Replays `/api` entries from a HAR file through the emulator, remapping ids |
 | processManager | `server/processManager.ts` | Starts a generated build as a child process and health-checks it |
 | app | `server/app.ts` | Fastify wiring, CORS, control plane, persistence, REAL launcher |
 | template | `templates/backend/` | Source of the generated server (typechecked in this repo) |
@@ -137,7 +144,11 @@ for example a recorded `POST` or a parity report with zero failures.
    the body, and the same check fails with field-level diffs.
 5. **Fuzz 200 steps.** PHANTOM generates a seeded random CRUD session from the inferred contract (same seed, same
    session) and sends it to both servers. Statuses, bodies and final data must still match.
-6. **Start generated backend**, then **Point TaskBoard at 127.0.0.1:8788**. The badge and route strip change, and the
+6. **Start shadow mode**, add a task (it matches), then send a request the contract doesn't allow (for example a task
+   whose `title` is a number). The shadow backend answers 400 where PHANTOM answered 201. Open **Contract drift** for
+   the evidence and the recommended action.
+7. **Import HAR** (Live traffic panel) to teach PHANTOM from traffic captured elsewhere.
+8. **Start generated backend**, then **Point TaskBoard at 127.0.0.1:8788**. The badge and route strip change, and the
    request log shows `:8788`. Add a task. The emulator never sees it, so the trace stream goes quiet. Click **Restart
    process** (you get a new pid), then reload the page: the task is still there, read back from SQLite.
 
@@ -148,14 +159,14 @@ Observed on 2026-11-03, Linux, Node 24.21.0, Google Chrome 156 (via playwright-c
 | Command | What it checks | Result |
 |---|---|---|
 | `npm run typecheck` | Server, template and dashboard TypeScript | clean |
-| `npm test` | 22 vitest tests: engine semantics, redaction, inference, fuzz determinism, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, 300-step fuzz pass, induced failure with diff, REAL launch with live-data migration, restart persistence, 400 on contract violation) | 22/22 pass |
+| `npm test` | 31 vitest tests, including shadow mode, drift, HAR import and fuzz reproducibility over real child processes: engine semantics, redaction, inference, fuzz determinism, generator injection and path-traversal safety, an e2e run (HTTP traffic, build, parity pass, 300-step fuzz pass, induced failure with diff, REAL launch with live-data migration, restart persistence, 400 on contract violation) | 31/31 pass |
 | `npm run build` | Production dashboard build | succeeds |
 | `PHANTOM_API=http://127.0.0.1:8787 npm run probe` | Kit's black-box contract probe against the emulator | 6/6 pass |
-| `npm run acceptance` | Records traffic, downloads the ZIP, **stops PHANTOM**, extracts to a clean temp folder, runs `npm install`, `typecheck` and the project's own `npm test`, starts it on :8798, checks seed import, runs the **contract probe against the generated backend**, restarts the process and checks the record is still there | 12/12 pass |
-| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, no console errors | 15/15 pass |
+| `npm run acceptance` | Records traffic, downloads the ZIP, **stops PHANTOM**, extracts to a clean temp folder, runs `npm install`, `typecheck` and the project's own `npm test`, starts it on :8798, checks seed import, runs the **contract probe against the generated backend**, exercises the generated typed client, restarts the process and checks the record is still there | 13/13 pass |
+| `npm run smoke` | Playwright drives the real UI: create, move, inferred fields, generate, parity pass, seeded fuzz pass, broken build caught, REAL launch and switch, POST lands on the REAL port, emulator doesn't see it, restart + reload keeps data, contract survives reload, no mobile horizontal scroll, the one-click demo runs every step, shadow differences and drift evidence appear, HAR import, no console errors | 20/20 pass |
 
 Screenshots captured by the smoke test (real runs, not mockups): `artifacts/screenshots/desktop-phantom.png`,
-`desktop-real.png`, `demo-finished.png`, `mobile.png`.
+`desktop-real.png`, `demo-finished.png`, `shadow-drift.png`, `mobile.png`. See also [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md).
 
 ## Tradeoffs and decisions
 
@@ -198,6 +209,13 @@ Screenshots captured by the smoke test (real runs, not mockups): `artifacts/scre
   reuses the database and never re-imports.
 - The REAL backend is launched by PHANTOM as a child process. Stopping PHANTOM stops it too. To run it fully on its own,
   use the ZIP and the commands above.
+- Shadow mode only sees traffic that reaches PHANTOM. In REAL mode the TaskBoard bypasses it. After a mismatching write
+  the shadow is rebuilt from PHANTOM's data (so later differences aren't cascades), and it copies the whole dataset, so it
+  is meant for development-sized data.
+- Drift detection checks top-level and nested field types, new collections and operations, and required fields. It
+  doesn't track response-shape changes, and the emulator, not a real server, produces the responses.
+- HAR import replays flat `/api/<collection>` JSON requests only and skips everything else (reported in the UI).
+- No demo video is included. `npm run record` can produce one once Playwright's ffmpeg is installed.
 - Not deployed anywhere. Everything runs locally.
 
 ## Tech stack

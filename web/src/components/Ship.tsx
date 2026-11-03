@@ -183,6 +183,29 @@ export function ParityPanel({ build, reports, onReport }: { build?: BuildInfo; r
                 </li>
               ))}
             </ol>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <button
+                onClick={() => {
+                  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `parity-${report.id}${report.fuzz ? `-seed${report.fuzz.seed}` : ''}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="rounded-lg border border-line px-2.5 py-1 text-ink hover:bg-raised"
+              >
+                Download report (JSON)
+              </button>
+              {report.reproduction && <span className="text-muted">Seed {report.reproduction.seed}, {report.reproduction.steps} steps{report.reproduction.firstFailureCase ? `, first failure at case ${report.reproduction.firstFailureCase}` : ', no failures'}</span>}
+            </div>
+            {report.reproduction && (
+              <details className="text-xs text-muted">
+                <summary className="cursor-pointer text-ink">Reproduce this run</summary>
+                <p className="mt-1">{report.reproduction.note}</p>
+                <Json value={report.reproduction.command} className="mt-1 max-h-24" />
+              </details>
+            )}
             <details className="text-xs text-muted">
               <summary className="cursor-pointer text-ink">What is and isn't compared</summary>
               <ul className="mt-2 list-disc space-y-1 pl-4">

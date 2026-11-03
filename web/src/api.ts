@@ -99,7 +99,70 @@ export interface RealStatus {
   error?: string;
 }
 
+export interface ShadowEvent {
+  seq: number;
+  at: string;
+  method: string;
+  path: string;
+  requestBody?: string;
+  emulatorStatus: number;
+  generatedStatus: number | null;
+  pass: boolean;
+  diffs: { path: string; emulator: unknown; generated: unknown }[];
+  resynced: boolean;
+  error?: string;
+}
+
+export interface ShadowStatus {
+  active: boolean;
+  starting: boolean;
+  buildId?: string;
+  pid?: number;
+  url?: string;
+  dataDir?: string;
+  startedAt?: string;
+  mirrored: number;
+  matched: number;
+  differed: number;
+  resyncs: number;
+  events: ShadowEvent[];
+  error?: string;
+}
+
+export interface DriftFinding {
+  id: string;
+  kind: 'new_endpoint' | 'new_operation' | 'unexpected_field' | 'incompatible_type' | 'missing_required';
+  severity: 'breaking' | 'warning' | 'info';
+  resource: string;
+  field?: string;
+  summary: string;
+  expected?: string;
+  observed?: string;
+  count: number;
+  evidence: { seq: number; timestamp: string; method: string; path: string; status: number; body?: unknown }[];
+  action: string;
+}
+
+export interface DriftReport {
+  buildId?: string;
+  baselineTraceCount: number;
+  baselineResources: string[];
+  newTraceCount: number;
+  findings: DriftFinding[];
+  summary: { breaking: number; warning: number; info: number; total: number };
+}
+
+export interface HarImportResult {
+  total: number;
+  imported: number;
+  skipped: { index: number; reason: string }[];
+  skippedCount: number;
+  statusMismatches: number;
+  resources: string[];
+}
+
 export interface EngineStatus {
+  shadow?: ShadowStatus;
   resources: string[];
   traceCount: number;
   latestBuild?: BuildInfo;
@@ -119,6 +182,7 @@ export interface ParityCase {
   generatedStatus: number;
   pass: boolean;
   diffs: { path: string; emulator: unknown; generated: unknown }[];
+  requestBody?: unknown;
 }
 
 export interface ParityReport {
@@ -131,6 +195,7 @@ export interface ParityReport {
   generatedBase: string;
   replayedTraces: number;
   fuzz: { seed: number; steps: number } | null;
+  reproduction?: { seed: number; steps: number; buildId: string; firstFailureCase: number | null; command: string; note: string };
   summary: { total: number; passed: number; failed: number };
   cases: ParityCase[];
   normalization: string[];
@@ -188,4 +253,9 @@ export async function data<T>(base: string, method: string, path: string, body?:
   }
   record(res.status);
   return parse<T>(res);
+}
+
+export async function importHarFile(text: string): Promise<HarImportResult> {
+  const res = await fetch(`${CONTROL_BASE}/__phantom/import/har`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: text });
+  return parse<HarImportResult>(res);
 }

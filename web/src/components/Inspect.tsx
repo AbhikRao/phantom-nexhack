@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CONTROL_BASE } from '../api.ts';
-import type { Contract, FieldNode, Mode, TraceEvent } from '../api.ts';
+import { CONTROL_BASE, importHarFile } from '../api.ts';
+import type { Contract, FieldNode, HarImportResult, Mode, TraceEvent } from '../api.ts';
 import { Empty, Json, Method, Panel, StatusCode } from './ui.tsx';
 
 export function TracePanel({ traces, mode }: { traces: TraceEvent[]; mode: Mode }) {
@@ -11,9 +11,30 @@ export function TracePanel({ traces, mode }: { traces: TraceEvent[]; mode: Mode 
   if (initialMax.current !== null && traces.length > 0 && traces[traces.length - 1].seq < initialMax.current) initialMax.current = 0; // after "Start over"
 
   const sel = traces.find((t) => t.seq === selected);
+  const [har, setHar] = useState<{ ok: boolean; text: string } | null>(null);
+  const onHar = async (file?: File) => {
+    if (!file) return;
+    try {
+      const r: HarImportResult = await importHarFile(await file.text());
+      setHar({ ok: true, text: `Imported ${r.imported} of ${r.total} requests into ${r.resources.map((x) => '/api/' + x).join(', ') || 'no collections'}. Skipped ${r.skippedCount}${r.skipped[0] ? ` (e.g. ${r.skipped[0].reason})` : ''}.` });
+    } catch (e) {
+      setHar({ ok: false, text: (e as Error).message });
+    }
+  };
   const rows = [...traces].reverse().slice(0, 200);
   return (
-    <Panel id="traffic" title="Live traffic" aside={<span className="text-xs text-muted">{traces.length} recorded</span>} className="min-h-[320px]">
+    <Panel id="traffic" title="Live traffic" aside={
+        <>
+          <span className="text-xs text-muted">{traces.length} recorded</span>
+          <label className="cursor-pointer rounded-lg border border-line px-2.5 py-1 text-xs hover:bg-raised focus-within:outline focus-within:outline-2 focus-within:outline-teal">
+            Import HAR
+            <input type="file" accept=".har,application/json" className="sr-only" aria-label="Import a HAR file" onChange={(e) => { void onHar(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
+        </>
+      }
+      className="min-h-[320px]"
+    >
+      {har && <p role="status" className={`border-b border-line px-4 py-2 text-xs ${har.ok ? 'text-teal' : 'text-rose'}`}>{har.text}</p>}
       {mode === 'real' && (
         <p className="border-b border-line bg-teal/10 px-4 py-2 text-xs leading-relaxed text-teal">
           The TaskBoard is talking to the generated backend, so PHANTOM no longer sees its requests. New rows here would mean something is still routed through the emulator.

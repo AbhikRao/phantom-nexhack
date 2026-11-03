@@ -18,7 +18,8 @@
     "test": "vitest run",
     "probe": "node scripts/contract_probe.mjs",
     "acceptance": "node scripts/acceptance_generated.mjs",
-    "smoke": "node scripts/browser_smoke.mjs"
+    "smoke": "node scripts/browser_smoke.mjs",
+    "record": "node scripts/record_demo.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",

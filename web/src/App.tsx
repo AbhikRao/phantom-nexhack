@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTROL_BASE, PHANTOM_API_BASE, control } from './api.ts';
-import type { BuildInfo, Contract, EngineStatus, Mode, ParityReport, RealStatus, TraceEvent } from './api.ts';
+import type { BuildInfo, Contract, EngineStatus, Mode, ParityReport, RealStatus, ShadowStatus, TraceEvent } from './api.ts';
 import { TaskBoard } from './components/TaskBoard.tsx';
 import { ContractPanel, TracePanel } from './components/Inspect.tsx';
 import { BuildPanel, ParityPanel, RealPanel } from './components/Ship.tsx';
 import { Button } from './components/ui.tsx';
 import { DemoRunner } from './components/DemoRunner.tsx';
+import { DriftPanel, ShadowPanel } from './components/Watch.tsx';
 
 // The mode is a per-viewer UI preference only; task data always comes from an HTTP server.
 const readMode = (): Mode => {
@@ -25,6 +26,7 @@ export function App() {
   const [build, setBuild] = useState<BuildInfo | undefined>();
   const [reports, setReports] = useState<ParityReport[]>([]);
   const [real, setReal] = useState<RealStatus | undefined>();
+  const [shadow, setShadow] = useState<ShadowStatus | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const contractTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -59,6 +61,7 @@ export function App() {
       setTraces(t);
       setBuild(s.latestBuild);
       setReal(s.real);
+      setShadow(s.shadow ?? null);
       setReports(p);
       setEngineDown(false);
     } catch {
@@ -77,6 +80,7 @@ export function App() {
     es.addEventListener('reset', () => void refreshAll());
     es.addEventListener('build', (e) => setBuild(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('real', (e) => setReal(JSON.parse((e as MessageEvent).data)));
+    es.addEventListener('shadow', (e) => setShadow(JSON.parse((e as MessageEvent).data)));
     es.onopen = () => setEngineDown(false);
     es.onerror = () => setEngineDown(true);
     return () => es.close();
@@ -132,7 +136,7 @@ export function App() {
               </li>
             ))}
             <li className="ml-auto flex gap-2">
-              <DemoRunner setMode={setMode} onBuilt={setBuild} onReport={(r) => setReports((prev) => [r, ...prev])} onReal={setReal} bump={() => setReloadKey((k) => k + 1)} />
+              <DemoRunner setMode={setMode} onBuilt={setBuild} onShadow={setShadow} onReport={(r) => setReports((prev) => [r, ...prev])} onReal={setReal} bump={() => setReloadKey((k) => k + 1)} />
               <Button onClick={reset} className="text-xs">Start over</Button>
             </li>
           </ol>
@@ -174,6 +178,10 @@ export function App() {
           <BuildPanel build={build} onBuilt={setBuild} canBuild={(status?.resources.length ?? 0) > 0 || traces.length > 0} />
           <ParityPanel build={build} reports={reports} onReport={(r) => setReports((prev) => [r, ...prev])} />
           <RealPanel build={build} real={real} mode={mode} setMode={setMode} onReal={setReal} />
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <ShadowPanel build={build} shadow={shadow} onShadow={setShadow} />
+          <DriftPanel build={build} traceCount={traces.length} onBuilt={setBuild} />
         </div>
         <footer className="pb-6 pt-2 text-xs leading-relaxed text-faint">
           Inference is deterministic: field types and required fields come only from recorded traffic. Business rules, auth and relations are not inferred.

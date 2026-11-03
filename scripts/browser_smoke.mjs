@@ -83,6 +83,16 @@ try {
   await page.locator('#verify').getByText(/Broken build caught/).waitFor({ timeout: 30000 });
   check('sabotaged build is caught by the verifier', true);
 
+  // Shadow mode through the UI: start, use the TaskBoard, see matches and no differences, stop.
+  await page.getByRole('button', { name: 'Start shadow mode' }).click();
+  await page.locator('#shadow').getByText('Shadowing', { exact: true }).waitFor({ timeout: 20000 });
+  await page.getByPlaceholder('What needs doing?').fill('Mirrored task');
+  await page.getByRole('button', { name: 'Add task' }).click();
+  await page.locator('#shadow').getByText(/^[1-9]\d* matched$/).waitFor({ timeout: 15000 });
+  check('shadow mode mirrors TaskBoard traffic with no differences', (await page.locator('#shadow [aria-label="Shadow totals"]').textContent()).includes('0 differ'));
+  await page.getByRole('button', { name: 'Stop shadow' }).click();
+  await page.locator('#shadow').getByText('Stopped', { exact: true }).waitFor();
+
   await page.getByRole('button', { name: 'Start generated backend' }).click();
   await page.locator('#real').getByText(`http://127.0.0.1:${REAL}`).waitFor({ timeout: 20000 });
   await page.getByRole('button', { name: /Point TaskBoard at/ }).click();
@@ -129,6 +139,24 @@ try {
   const demoText = await page.getByLabel('Demo progress').textContent();
   check('one-click demo ran every step', /Caught: \d+ of \d+ checks fail/.test(demoText) && /read back from the database/.test(demoText) && /the emulator has no such task/.test(demoText));
   await page.screenshot({ path: join(shots, 'demo-finished.png'), fullPage: false });
+  await page.getByLabel('Demo progress').getByRole('button', { name: 'Close' }).click();
+  check('shadow panel lists the contract-breaking requests as differences', (await page.locator('#shadow').textContent()).includes('Differ'));
+  await page.locator('#drift').getByText(/\d+ breaking/).waitFor({ timeout: 10000 });
+  check('drift panel reports breaking findings with evidence', (await page.locator('#drift').textContent()).includes('Breaking'));
+  await page.locator('#drift').getByRole('button', { name: /is now integer/ }).first().click();
+  check('drift evidence expands to the recorded request', (await page.locator('#drift').textContent()).includes('trace #'));
+  await page.screenshot({ path: join(shots, 'shadow-drift.png'), fullPage: true });
+
+  // HAR import through the file input.
+  const har = { log: { entries: [
+    { request: { method: 'POST', url: 'https://x.example/api/invoices', headers: [], postData: { text: '{"number":"INV-1","total":9.5}' } }, response: { status: 201, content: { text: '{"id":77}' } } },
+    { request: { method: 'GET', url: 'https://x.example/api/invoices/77', headers: [] }, response: { status: 200, content: { text: '' } } },
+    { request: { method: 'GET', url: 'https://x.example/logo.png', headers: [] }, response: { status: 200, content: { text: '' } } },
+  ] } };
+  await page.locator('input[aria-label="Import a HAR file"]').setInputFiles({ name: 'capture.har', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(har)) });
+  await page.locator('#traffic').getByText(/Imported 2 of 3 requests into \/api\/invoices/).waitFor({ timeout: 10000 });
+  await page.locator('#contract').getByText('/api/invoices').first().waitFor();
+  check('HAR import teaches PHANTOM a new collection', true);
   check('no console errors', consoleErrors.length === 0 || (console.log(consoleErrors), false));
 } catch (e) {
   console.error('ERROR', e.message);
