@@ -103,8 +103,8 @@ export async function createPhantom(options: PhantomOptions = {}): Promise<Phant
   let realError: string | undefined;
   const realStatus = () => ({
     running: !!real && real.child.exitCode === null,
-    port: realPort,
-    url: `http://127.0.0.1:${realPort}`,
+    port: real?.port ?? realPort,
+    url: `http://127.0.0.1:${real?.port ?? realPort}`,
     buildId: real?.buildId,
     pid: real?.pid,
     startedAt: real?.startedAt,
