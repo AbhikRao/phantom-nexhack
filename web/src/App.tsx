@@ -47,18 +47,23 @@ export function App() {
 
   const refreshAll = useCallback(async () => {
     try {
-      const [s, t, p] = await Promise.all([control<EngineStatus>('/status'), control<TraceEvent[]>('/traces?limit=500'), control<ParityReport[]>('/parity')]);
+      const [s, t, p, c] = await Promise.all([
+        control<EngineStatus>('/status'),
+        control<TraceEvent[]>('/traces?limit=500'),
+        control<ParityReport[]>('/parity'),
+        control<Contract>('/contract'),
+      ]);
+      setContract(c);
       setStatus(s);
       setTraces(t);
       setBuild(s.latestBuild);
       setReal(s.real);
       setReports(p);
       setEngineDown(false);
-      refreshContract();
     } catch {
       setEngineDown(true);
     }
-  }, [refreshContract]);
+  }, []);
 
   useEffect(() => {
     void refreshAll();
@@ -163,7 +168,7 @@ export function App() {
           <ContractPanel contract={contract} />
           <TracePanel traces={traces} mode={mode} />
         </div>
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
           <BuildPanel build={build} onBuilt={setBuild} canBuild={(status?.resources.length ?? 0) > 0 || traces.length > 0} />
           <ParityPanel build={build} reports={reports} onReport={(r) => setReports((prev) => [r, ...prev])} />
           <RealPanel build={build} real={real} mode={mode} setMode={setMode} onReal={setReal} />

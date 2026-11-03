@@ -5,6 +5,11 @@ import { Empty, Json, Method, Panel, StatusCode } from './ui.tsx';
 
 export function TracePanel({ traces, mode }: { traces: TraceEvent[]; mode: Mode }) {
   const [selected, setSelected] = useState<number | null>(null);
+  // Only rows that arrive after the first render get the arrival highlight.
+  const initialMax = useRef<number | null>(null);
+  if (initialMax.current === null && traces.length > 0) initialMax.current = traces[traces.length - 1].seq;
+  if (initialMax.current !== null && traces.length > 0 && traces[traces.length - 1].seq < initialMax.current) initialMax.current = 0; // after "Start over"
+
   const sel = traces.find((t) => t.seq === selected);
   const rows = [...traces].reverse().slice(0, 200);
   return (
@@ -36,7 +41,7 @@ export function TracePanel({ traces, mode }: { traces: TraceEvent[]; mode: Mode 
                   aria-selected={selected === t.seq}
                   onClick={() => setSelected(selected === t.seq ? null : t.seq)}
                   onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setSelected(selected === t.seq ? null : t.seq))}
-                  className={`arrive cursor-pointer border-t border-line/60 hover:bg-raised ${selected === t.seq ? 'bg-raised' : ''}`}
+                  className={`${initialMax.current !== null && t.seq > initialMax.current ? 'arrive' : ''} cursor-pointer border-t border-line/60 hover:bg-raised ${selected === t.seq ? 'bg-raised' : ''}`}
                 >
                   <td className="px-4 py-1.5"><Method m={t.method} /></td>
                   <td className="truncate px-2 py-1.5 font-mono text-ink">{t.path}{t.query ? `?${t.query}` : ''}</td>

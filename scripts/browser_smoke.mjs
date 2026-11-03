@@ -97,6 +97,8 @@ try {
   await page.reload();
   await page.locator('#board').getByText('Persisted in SQLite', { exact: true }).waitFor({ timeout: 10000 });
   check('after process restart + page reload the task is still there', true);
+  await page.locator('#contract').getByText('/api/tasks').first().waitFor({ timeout: 5000 }).catch(() => {});
+  check('contract panel still populated after reload', (await page.locator('#contract').textContent()).includes('/api/tasks'));
   await page.screenshot({ path: join(shots, 'desktop-real.png'), fullPage: true });
 
   await page.setViewportSize({ width: 375, height: 812 });
